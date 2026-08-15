@@ -1,0 +1,18 @@
+{
+  "name": "applygauge",
+  "private": true,
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=@applygauge/web",
+    "build:web": "npm run build --workspace=@applygauge/web",
+    "format:web": "npm run format --workspace=@applygauge/web",
+    "lint:web": "npm run lint --workspace=@applygauge/web",
+    "typecheck:web": "npm run typecheck --workspace=@applygauge/web",
+    "test:web": "npm run test --workspace=@applygauge/web"
+  }
+}

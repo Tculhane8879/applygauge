@@ -1,0 +1,3 @@
+Alembic migration environment for the ApplyGauge PostgreSQL schema.
+
+Milestone 0 intentionally contains no revisions or product tables.
