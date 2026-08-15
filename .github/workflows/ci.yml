@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "feat/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check formatting
+        run: npm run format:web
+
+      - name: Lint
+        run: npm run lint:web
+
+      - name: Type-check
+        run: npm run typecheck:web
+
+      - name: Test
+        run: npm run test:web
+
+      - name: Build
+        run: npm run build:web
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: applygauge
+          POSTGRES_USER: applygauge
+          POSTGRES_PASSWORD: applygauge_local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U applygauge -d applygauge"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+psycopg://applygauge:applygauge_local@localhost:5432/applygauge
+      CORS_ORIGINS: '["http://localhost:3000"]'
+      RUN_DATABASE_INTEGRATION: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          python-version: "3.13"
+          enable-cache: true
+          cache-dependency-glob: apps/api/uv.lock
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Check formatting
+        run: uv run --frozen ruff format --check .
+
+      - name: Lint
+        run: uv run --frozen ruff check .
+
+      - name: Type-check
+        run: uv run --frozen mypy
+
+      - name: Test, including PostgreSQL readiness
+        run: uv run --frozen pytest
