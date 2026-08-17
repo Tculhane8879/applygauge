@@ -10,7 +10,8 @@ FastAPI, and PostgreSQL.
 
 ## Project status
 
-ApplyGauge is at **Milestone 0: Engineering Foundation**.
+ApplyGauge is at **Milestone 1: Authentication**. Email/password signup, confirmation, login,
+cookie-backed sessions, protected UI, sign-out, and FastAPI identity verification are implemented.
 
 Implemented today:
 
@@ -21,7 +22,10 @@ Implemented today:
 - API liveness and database-readiness endpoints;
 - frontend-to-backend connectivity indication;
 - baseline frontend and backend tests;
-- formatting, linting, strict typing, builds, and continuous integration.
+- formatting, linting, strict typing, builds, and continuous integration;
+- a reproducible local Supabase Auth stack with ES256/JWKS and email capture;
+- FastAPI bearer-token validation and `GET /api/v1/auth/me`;
+- Next.js SSR signup, confirmation, login, protected dashboard, and sign-out.
 
 The v1 product features described below are planned, not yet implemented.
 
@@ -63,7 +67,7 @@ deployment discussion.
 - Frontend quality: Prettier, ESLint, Vitest, React Testing Library
 - Backend quality: Ruff, mypy, Pytest
 - Tooling: npm workspaces, uv, Docker Compose, GitHub Actions
-- Planned v1 identity provider: Supabase Auth, beginning in Milestone 1
+- Identity: Supabase Auth with FastAPI-side ES256/JWKS validation
 
 ## Repository structure
 
@@ -147,6 +151,14 @@ docker compose logs postgres
 
 ### 2. Start FastAPI
 
+For authentication development, initialize the ignored local signing key once and start Supabase.
+The [local authentication guide](docs/authentication/local-development.md) documents the CLI 2.114.0
+compatibility step and Windows port map.
+
+```bash
+npx --no-install supabase start --workdir .
+```
+
 In a second terminal:
 
 ```bash
@@ -172,12 +184,12 @@ The frontend runs at `http://localhost:3000` and displays its connection state t
 | File | Visibility | Variables |
 | --- | --- | --- |
 | `.env` | Docker Compose/local only | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` |
-| `apps/api/.env` | Private backend | `APP_ENV`, `DATABASE_URL`, `CORS_ORIGINS` |
-| `apps/web/.env.local` | Browser-visible where prefixed | `NEXT_PUBLIC_API_BASE_URL` |
+| `apps/api/.env` | Private backend | `APP_ENV`, `DATABASE_URL`, `CORS_ORIGINS`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE` |
+| `apps/web/.env.local` | Browser-visible where prefixed | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
 
 `NEXT_PUBLIC_` values are compiled into browser code and must never contain secrets. Backend and
-database credentials must never be exposed through that prefix. Supabase credentials are not
-required during Milestone 0; the authentication configuration will be designed in Milestone 1.
+database credentials must never be exposed through that prefix. The Supabase URL is public;
+signing keys and service credentials must never be committed or placed in frontend configuration.
 
 ## Health and readiness
 
@@ -263,11 +275,13 @@ PostgreSQL service container. CI performs no deployment.
 - [Architecture overview](docs/architecture/overview.md)
 - [Architecture decisions](docs/decisions/)
 - [Foundation API endpoints](docs/api/health.md)
+- [Authentication endpoint](docs/api/authentication.md)
+- [Local Supabase authentication development](docs/authentication/local-development.md)
 
 ## Roadmap
 
-1. Milestone 0: engineering foundation — current
-2. Milestone 1: authentication and ownership foundation
+1. Milestone 0: engineering foundation — complete
+2. Milestone 1: authentication and ownership foundation — current
 3. Milestone 2: job management
 4. Milestone 3: application pipeline and history
 5. Milestone 4: deterministic skills engine
@@ -282,6 +296,6 @@ processing, and applied AI, but only after v1 is complete.
 ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid APIs, hosting, storage,
 or infrastructure, and core application logic must remain portable if free hosting plans change.
 
-At Milestone 0, ApplyGauge has no authentication, job records, application pipeline, skill
-extraction, notes, analytics, or deployment automation. The current UI and API exist solely to
-verify the engineering foundation and full local connectivity path.
+Authentication is implemented, but the dashboard is intentionally only an identity-verification
+page. ApplyGauge still has no job records, application pipeline, skill extraction, notes, product
+analytics, or deployment automation.

@@ -14,5 +14,8 @@
     "lint:web": "npm run lint --workspace=@applygauge/web",
     "typecheck:web": "npm run typecheck --workspace=@applygauge/web",
     "test:web": "npm run test --workspace=@applygauge/web"
+  },
+  "devDependencies": {
+    "supabase": "^2.114.0"
   }
 }

@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     app_env: Literal["development", "test", "production"] = "development"
     database_url: str = "postgresql+psycopg://applygauge:applygauge_local@localhost:5432/applygauge"
     cors_origins: list[AnyHttpUrl] = [AnyHttpUrl("http://localhost:3000")]
+    supabase_url: AnyHttpUrl = AnyHttpUrl("http://127.0.0.1:55021")
+    supabase_jwt_audience: str = "authenticated"
 
 
 @lru_cache
