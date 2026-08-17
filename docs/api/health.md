@@ -1,7 +1,7 @@
 # Foundation Health API
 
-ApplyGauge exposes two small operational endpoints. Neither endpoint implements product behavior or
-requires authentication during Milestone 0.
+ApplyGauge exposes two small public operational endpoints. Neither endpoint implements product
+behavior or requires authentication.
 
 ## `GET /api/v1/health`
 

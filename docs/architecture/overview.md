@@ -2,9 +2,8 @@
 
 ## Status and scope
 
-This document describes the v1 architectural direction and the infrastructure implemented in
-Milestone 0. Product and authentication capabilities described as future work are not currently
-implemented.
+This document describes the v1 direction and the foundation implemented through Milestone 1.
+Authentication is implemented; product/domain capabilities begin in later milestones.
 
 ## System boundary
 
@@ -28,8 +27,8 @@ read or write domain tables through Supabase-generated database APIs.
 
 ### FastAPI
 
-FastAPI is the application boundary and will own domain business logic, authenticated identity
-validation, authorization and ownership enforcement, input validation beyond UI concerns, status
+FastAPI is the application boundary and owns authenticated identity validation. It will also own
+domain logic, authorization and ownership enforcement, input validation beyond UI concerns, status
 transitions, deterministic skill extraction, notes, and analytics as their milestones arrive.
 
 The backend is a modular monolith: one deployable API organized into cohesive modules. ApplyGauge
@@ -47,10 +46,10 @@ database abstractions.
 
 ## Supabase boundary
 
-Supabase Auth is the specified v1 identity provider. Authentication begins in Milestone 1, so no
-Supabase client, credentials, local Auth stack, or token validation exists in Milestone 0. When
-implemented, Supabase will establish identity and FastAPI will validate that identity before
-performing protected operations. The browser will not be trusted to supply resource ownership.
+Supabase Auth is the v1 identity provider. Next.js uses cookie-backed SSR sessions with distinct
+browser, server, and Proxy clients. Proxy and protected Server Components use verified claims for
+route decisions. FastAPI independently validates tokens through JWKS and derives a typed identity
+before protected operations. The browser is not trusted to supply resource ownership.
 
 Supabase infrastructure does not replace FastAPI as the business-logic boundary.
 
@@ -62,6 +61,7 @@ The primary inner development loop is:
 Next.js dev server             local host, port 3000
 FastAPI via uv                 local host, port 8000
 PostgreSQL via Docker Compose  container, exposed on port 5432
+Supabase Auth stack            containers, API exposed on port 55021
 ```
 
 Running source processes locally provides fast reloads, direct debugger access, and simple editor
@@ -74,6 +74,9 @@ Environment boundaries are explicit:
 - root `.env` configures the local PostgreSQL Compose service;
 - `apps/api/.env` contains private backend configuration;
 - `apps/web/.env.local` contains browser-visible frontend configuration.
+
+Supabase's Auth-owned database is separate from the ApplyGauge application database. See the
+[local authentication guide](../authentication/local-development.md) for the service map.
 
 ## Liveness and readiness
 
@@ -89,13 +92,14 @@ that is temporarily unable to serve database-backed application requests.
 
 ## Current request flow
 
-At Milestone 0, the frontend calls only the liveness endpoint and displays `checking`, `connected`,
-or `unavailable`. The readiness endpoint verifies the API-to-database connection. Together they
-exercise the local path from Next.js through FastAPI to PostgreSQL without inventing product data.
+The public landing page calls the liveness endpoint. Authenticated users establish a cookie-backed
+Supabase session, and the protected dashboard forwards its access token to
+`GET /api/v1/auth/me`. FastAPI independently validates the token before returning identity. The
+readiness endpoint separately verifies the API-to-application-database connection.
 
 ## Future evolution, not yet implemented
 
-- Milestone 1 adds Supabase Auth integration and the ownership foundation.
+- Later milestones add owned product resources behind the established authenticated identity.
 - Later v1 milestones add job management, application history, deterministic skill extraction, and
   explainable analytics inside the FastAPI modular monolith.
 - Post-v1 releases may add a browser extension, resume intelligence, semantic retrieval, background
