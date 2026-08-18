@@ -9,13 +9,21 @@ export type AuthenticatedIdentity = {
 };
 export type AccessTokenProvider = () => Promise<string | null>;
 
+export class ApiError extends Error {
+  constructor(public readonly status: number) {
+    super("ApplyGauge API request failed.");
+    this.name = "ApiError";
+  }
+}
+
 export async function baseApiFetch<T>(
   path: string,
   init?: RequestInit,
   fetchImplementation: typeof fetch = fetch,
 ): Promise<T> {
   const response = await fetchImplementation(`${apiBaseUrl}${path}`, init);
-  if (!response.ok) throw new Error("ApplyGauge API request failed.");
+  if (!response.ok) throw new ApiError(response.status);
+  if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
 

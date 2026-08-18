@@ -57,6 +57,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Verified backend identity")).toBeInTheDocument();
     expect(screen.getByText("User ID: user-id")).toBeInTheDocument();
     expect(screen.queryByText("session-id")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Saved Jobs/ })).toHaveAttribute(
+      "href",
+      "/jobs",
+    );
   });
 
   it("shows a safe error if FastAPI cannot verify the session", async () => {

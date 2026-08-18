@@ -1,0 +1,1 @@
+"""ApplyGauge API tests."""

@@ -95,5 +95,8 @@ jobs:
       - name: Type-check
         run: uv run --frozen mypy
 
+      - name: Apply database migrations
+        run: uv run --frozen alembic upgrade head
+
       - name: Test, including PostgreSQL readiness
         run: uv run --frozen pytest
