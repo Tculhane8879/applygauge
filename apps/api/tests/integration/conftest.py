@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,8 +14,8 @@ from alembic import command
 from applygauge_api.core.config import get_settings
 
 
-@pytest.fixture(scope="session")
-def migrated_database_url() -> Iterator[str]:
+@contextmanager
+def temporary_database_url() -> Iterator[str]:
     if os.getenv("RUN_DATABASE_INTEGRATION") != "1":
         pytest.skip("Set RUN_DATABASE_INTEGRATION=1 to run against PostgreSQL.")
 
@@ -32,8 +33,6 @@ def migrated_database_url() -> Iterator[str]:
         connection.exec_driver_sql(f'CREATE DATABASE "{database_name}"')
 
     try:
-        config = make_alembic_config(test_database_url.render_as_string(hide_password=False))
-        command.upgrade(config, "head")
         yield test_database_url.render_as_string(hide_password=False)
     finally:
         with admin_engine.connect() as connection:
@@ -46,6 +45,19 @@ def migrated_database_url() -> Iterator[str]:
             )
             connection.exec_driver_sql(f'DROP DATABASE IF EXISTS "{database_name}"')
         admin_engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def migrated_database_url() -> Iterator[str]:
+    with temporary_database_url() as database_url:
+        command.upgrade(make_alembic_config(database_url), "head")
+        yield database_url
+
+
+@pytest.fixture
+def disposable_database_url() -> Iterator[str]:
+    with temporary_database_url() as database_url:
+        yield database_url
 
 
 def make_alembic_config(database_url: str) -> Config:

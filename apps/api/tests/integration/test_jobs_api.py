@@ -1,20 +1,22 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
+from threading import Event, Thread
+from time import monotonic
 from uuid import UUID
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event, func, select
+from sqlalchemy import create_engine, delete, event, func, select, text
 from sqlalchemy.orm import Session
 
 from applygauge_api.auth.dependencies import get_current_user
 from applygauge_api.auth.models import AuthenticatedUser
 from applygauge_api.db.session import get_db_session
 from applygauge_api.jobs import service as job_service
-from applygauge_api.jobs.models import Company, Job
+from applygauge_api.jobs.models import Company, Job, StatusEvent
 from applygauge_api.jobs.normalization import normalize_company_name
-from applygauge_api.jobs.schemas import JobCreate, JobUpdate
+from applygauge_api.jobs.schemas import JobCreate, JobUpdate, StatusUpdate
 from applygauge_api.main import app
 
 pytestmark = pytest.mark.integration
@@ -87,6 +89,7 @@ def add_job(
         title=title,
         created_at=created_at,
         updated_at=created_at,
+        current_status="SAVED",
     )
     session.add(job)
     session.flush()
@@ -117,6 +120,7 @@ def test_authenticated_user_creates_job_and_company(database_session: Session) -
     assert body["work_arrangement"] == "REMOTE"
     assert body["employment_type"] == "FULL_TIME"
     assert "user_id" not in body
+    assert body["current_status"] == "SAVED"
 
     company = database_session.scalar(select(Company))
     job = database_session.scalar(select(Job))
@@ -127,6 +131,14 @@ def test_authenticated_user_creates_job_and_company(database_session: Session) -
     assert company.normalized_name == "acme software"
     assert job.user_id == USER_A.id
     assert job.company_id == company.id
+    event_row = database_session.scalar(select(StatusEvent))
+    assert job.current_status == "SAVED"
+    assert event_row is not None
+    assert event_row.user_id == USER_A.id
+    assert event_row.job_id == job.id
+    assert event_row.from_status is None
+    assert event_row.to_status == "SAVED"
+    assert event_row.changed_at == job.created_at
 
 
 def test_same_normalized_company_is_reused(database_session: Session) -> None:
@@ -333,6 +345,30 @@ def test_failed_job_creation_rolls_back_new_company(database_session: Session) -
 
     assert database_session.scalar(select(func.count()).select_from(Company)) == 0
     assert database_session.scalar(select(func.count()).select_from(Job)) == 0
+
+
+def test_failed_initial_status_event_rolls_back_job_and_company(
+    database_session: Session,
+) -> None:
+    flush_count = 0
+
+    def fail_when_status_event_flushes(session: Session, *_args: object) -> None:
+        nonlocal flush_count
+        flush_count += 1
+        if any(isinstance(item, StatusEvent) for item in session.new):
+            raise RuntimeError("deterministic status event flush failure")
+
+    event.listen(database_session, "before_flush", fail_when_status_event_flushes)
+    try:
+        with pytest.raises(RuntimeError, match="deterministic status event flush failure"):
+            job_service.create_job(database_session, USER_A, JobCreate.model_validate(payload()))
+    finally:
+        event.remove(database_session, "before_flush", fail_when_status_event_flushes)
+
+    assert flush_count >= 2
+    assert database_session.scalar(select(func.count()).select_from(Company)) == 0
+    assert database_session.scalar(select(func.count()).select_from(Job)) == 0
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 0
 
 
 def test_owner_updates_title_and_omitted_fields_remain(database_session: Session) -> None:
@@ -552,3 +588,268 @@ def test_job_mutations_require_authentication(database_session: Session, method:
         response = client.request(method, f"/api/v1/jobs/{UUID(int=1)}", json={"title": "No"})
 
     assert response.status_code == 401
+
+
+def test_job_status_is_in_create_list_detail_and_metadata_update_responses(
+    database_session: Session,
+) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post("/api/v1/jobs", json=payload())
+        job_id = created.json()["id"]
+        listing = client.get("/api/v1/jobs")
+        detail = client.get(f"/api/v1/jobs/{job_id}")
+        updated = client.patch(f"/api/v1/jobs/{job_id}", json={"title": "Updated"})
+
+    assert created.json()["current_status"] == "SAVED"
+    assert listing.json()["items"][0]["current_status"] == "SAVED"
+    assert detail.json()["current_status"] == "SAVED"
+    assert updated.json()["current_status"] == "SAVED"
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 1
+
+
+def test_status_transitions_append_ordered_history(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post("/api/v1/jobs", json=payload())
+        job_id = created.json()["id"]
+        applied = client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "APPLIED"})
+        screening = client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "SCREENING"})
+        history = client.get(f"/api/v1/jobs/{job_id}/status-events")
+
+    assert applied.status_code == screening.status_code == 200
+    assert applied.json()["current_status"] == "APPLIED"
+    assert screening.json()["current_status"] == "SCREENING"
+    items = history.json()["items"]
+    assert [(item["from_status"], item["to_status"]) for item in items] == [
+        (None, "SAVED"),
+        ("SAVED", "APPLIED"),
+        ("APPLIED", "SCREENING"),
+    ]
+    assert all(set(item) == {"id", "from_status", "to_status", "changed_at"} for item in items)
+    timestamps = [datetime.fromisoformat(item["changed_at"]) for item in items]
+    assert timestamps == sorted(timestamps)
+    stored_job = database_session.get(Job, UUID(job_id))
+    assert stored_job is not None and stored_job.current_status == "SCREENING"
+
+
+def test_status_correction_is_unrestricted(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        job_id = client.post("/api/v1/jobs", json=payload()).json()["id"]
+        assert (
+            client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "REJECTED"}).status_code
+            == 200
+        )
+        corrected = client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "INTERVIEW"})
+
+    assert corrected.status_code == 200
+    assert corrected.json()["current_status"] == "INTERVIEW"
+
+
+def test_same_status_is_409_without_mutation(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post("/api/v1/jobs", json=payload())
+        job_id = UUID(created.json()["id"])
+        job = database_session.get(Job, job_id)
+        assert job is not None
+        original_updated_at = job.updated_at
+        response = client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "SAVED"})
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "The job already has the requested status."}
+    database_session.refresh(job)
+    assert job.current_status == "SAVED"
+    assert job.updated_at == original_updated_at
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 1
+
+
+@pytest.mark.parametrize(
+    "invalid_payload",
+    [{}, {"status": None}, {"status": "INVALID"}, {"status": "APPLIED", "extra": True}],
+)
+def test_invalid_status_payload_is_422(
+    database_session: Session, invalid_payload: dict[str, object]
+) -> None:
+    with client_as(database_session, USER_A) as client:
+        job_id = client.post("/api/v1/jobs", json=payload()).json()["id"]
+        response = client.patch(f"/api/v1/jobs/{job_id}/status", json=invalid_payload)
+    assert response.status_code == 422
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 1
+
+
+def test_status_endpoints_preserve_nondisclosure(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        job_id = client.post("/api/v1/jobs", json=payload()).json()["id"]
+    missing_id = UUID(int=99)
+    with client_as(database_session, USER_B) as client:
+        foreign_transition = client.patch(
+            f"/api/v1/jobs/{job_id}/status", json={"status": "APPLIED"}
+        )
+        missing_transition = client.patch(
+            f"/api/v1/jobs/{missing_id}/status", json={"status": "APPLIED"}
+        )
+        foreign_history = client.get(f"/api/v1/jobs/{job_id}/status-events")
+        missing_history = client.get(f"/api/v1/jobs/{missing_id}/status-events")
+
+    expected = {"detail": "The requested job could not be found."}
+    assert foreign_transition.status_code == missing_transition.status_code == 404
+    assert foreign_transition.json() == missing_transition.json() == expected
+    assert foreign_history.status_code == missing_history.status_code == 404
+    assert foreign_history.json() == missing_history.json() == expected
+    job = database_session.get(Job, UUID(job_id))
+    assert job is not None and job.current_status == "SAVED"
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 1
+
+
+@pytest.mark.parametrize("suffix", ["status", "status-events"])
+def test_status_endpoints_require_authentication(database_session: Session, suffix: str) -> None:
+    with unauthenticated_client(database_session) as client:
+        response = client.request(
+            "patch" if suffix == "status" else "get",
+            f"/api/v1/jobs/{UUID(int=1)}/{suffix}",
+            json={"status": "APPLIED"} if suffix == "status" else None,
+        )
+    assert response.status_code == 401
+
+
+def test_transition_failure_rolls_back_snapshot_and_event(database_session: Session) -> None:
+    job = job_service.create_job(database_session, USER_A, JobCreate.model_validate(payload()))
+
+    def fail_event_flush(session: Session, *_args: object) -> None:
+        if any(isinstance(item, StatusEvent) for item in session.new):
+            raise RuntimeError("deterministic transition event failure")
+
+    event.listen(database_session, "before_flush", fail_event_flush)
+    try:
+        with pytest.raises(RuntimeError, match="deterministic transition event failure"):
+            job_service.transition_job_status(
+                database_session,
+                USER_A,
+                job.id,
+                StatusUpdate.model_validate({"status": "APPLIED"}),
+            )
+    finally:
+        event.remove(database_session, "before_flush", fail_event_flush)
+
+    restored = database_session.get(Job, job.id)
+    assert restored is not None and restored.current_status == "SAVED"
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 1
+
+
+def test_metadata_patch_preserves_status_history(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        job_id = client.post("/api/v1/jobs", json=payload()).json()["id"]
+        client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "APPLIED"})
+        updated = client.patch(f"/api/v1/jobs/{job_id}", json={"title": "Metadata only"})
+        rejected = client.patch(f"/api/v1/jobs/{job_id}", json={"current_status": "SAVED"})
+    assert updated.status_code == 200
+    assert updated.json()["current_status"] == "APPLIED"
+    assert rejected.status_code == 422
+    job = database_session.get(Job, UUID(job_id))
+    assert job is not None and job.current_status == "APPLIED" and job.title == "Metadata only"
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 2
+
+
+def test_delete_after_transitions_cascades_history_and_retains_company(
+    database_session: Session,
+) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post("/api/v1/jobs", json=payload())
+        job_id = UUID(created.json()["id"])
+        company_id = UUID(created.json()["company"]["id"])
+        client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "APPLIED"})
+        client.patch(f"/api/v1/jobs/{job_id}/status", json={"status": "SCREENING"})
+        response = client.delete(f"/api/v1/jobs/{job_id}")
+    assert response.status_code == 204
+    assert (
+        database_session.scalar(
+            select(func.count()).select_from(StatusEvent).where(StatusEvent.job_id == job_id)
+        )
+        == 0
+    )
+    assert database_session.get(Company, company_id) is not None
+
+
+def test_concurrent_transitions_serialize_from_the_latest_status(
+    migrated_database_url: str,
+) -> None:
+    engine = create_engine(migrated_database_url)
+    worker_started = Event()
+    worker_finished = Event()
+    worker_pid: list[int] = []
+    worker_errors: list[BaseException] = []
+
+    with Session(engine) as setup_session:
+        job = job_service.create_job(
+            setup_session,
+            USER_A,
+            JobCreate.model_validate(payload(company_name="Concurrency Company")),
+        )
+        job_id, company_id = job.id, job.company_id
+
+    def run_competing_transition() -> None:
+        try:
+            with Session(engine) as worker_session:
+                worker_pid.append(worker_session.scalar(select(func.pg_backend_pid())) or 0)
+                worker_started.set()
+                job_service.transition_job_status(
+                    worker_session,
+                    USER_A,
+                    job_id,
+                    StatusUpdate.model_validate({"status": "SCREENING"}),
+                )
+        except BaseException as exc:
+            worker_errors.append(exc)
+        finally:
+            worker_finished.set()
+
+    try:
+        with Session(engine) as first_session:
+            locked_job = first_session.scalar(
+                select(Job).where(Job.id == job_id, Job.user_id == USER_A.id).with_for_update()
+            )
+            assert locked_job is not None
+            worker = Thread(target=run_competing_transition, daemon=True)
+            worker.start()
+            assert worker_started.wait(timeout=5)
+
+            deadline = monotonic() + 5
+            is_blocked = False
+            with engine.connect() as observer:
+                while monotonic() < deadline:
+                    is_blocked = bool(
+                        observer.scalar(
+                            text("SELECT cardinality(pg_blocking_pids(:pid)) > 0"),
+                            {"pid": worker_pid[0]},
+                        )
+                    )
+                    if is_blocked:
+                        break
+            assert is_blocked
+
+            first_result = job_service.transition_job_status(
+                first_session,
+                USER_A,
+                job_id,
+                StatusUpdate.model_validate({"status": "APPLIED"}),
+            )
+            assert first_result.current_status == "APPLIED"
+
+        assert worker_finished.wait(timeout=5)
+        worker.join(timeout=5)
+        assert not worker.is_alive()
+        assert worker_errors == []
+
+        with Session(engine) as verification_session:
+            stored_job = verification_session.get(Job, job_id)
+            history = job_service.list_status_events(verification_session, USER_A.id, job_id)
+            assert stored_job is not None and stored_job.current_status == "SCREENING"
+            assert [(item.from_status, item.to_status) for item in history] == [
+                (None, "SAVED"),
+                ("SAVED", "APPLIED"),
+                ("APPLIED", "SCREENING"),
+            ]
+    finally:
+        with Session(engine) as cleanup_session:
+            cleanup_session.execute(delete(Job).where(Job.id == job_id))
+            cleanup_session.execute(delete(Company).where(Company.id == company_id))
+            cleanup_session.commit()
+        engine.dispose()

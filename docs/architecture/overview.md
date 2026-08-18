@@ -2,8 +2,8 @@
 
 ## Status and scope
 
-This document describes the v1 direction and the architecture implemented through Milestone 2.
-Authentication and user-owned company/job management are implemented.
+This document describes the v1 direction and the architecture implemented through Milestone 3.
+Authentication, user-owned job management, and the application pipeline are implemented.
 
 ## System boundary
 
@@ -25,7 +25,7 @@ The frontend owns presentation, accessible browser interaction, client-side UI s
 validation. It calls the versioned FastAPI surface for application operations. It does not directly
 read or write domain tables through Supabase-generated database APIs.
 
-Saved-job writes use authenticated Next.js Server Actions. Each action re-establishes the server-side
+Saved-job and status-transition writes use authenticated Next.js Server Actions. Each action re-establishes the server-side
 Supabase session, obtains its access token through the shared token-provider boundary, and calls
 FastAPI through the centralized API transport. FastAPI remains authoritative for validation,
 ownership, company resolution, and persistence. Successful actions revalidate affected routes and
@@ -44,7 +44,9 @@ does not need microservices, a message broker, or a worker during v1.
 
 PostgreSQL owns persistent relational data. SQLAlchemy provides application database access and
 Alembic owns schema migrations. Milestone 2 introduced user-owned `companies` and `jobs` tables in
-the separate ApplyGauge application database.
+the separate ApplyGauge application database. Milestone 3 adds a checked current-status snapshot
+and immutable same-owner transition events. FastAPI updates both atomically while holding an
+ownership-scoped PostgreSQL row lock.
 
 The persistence layer remains ordinary PostgreSQL-compatible. A future free deployment may use
 Supabase-hosted PostgreSQL, but core behavior must not depend unnecessarily on proprietary Supabase
@@ -104,11 +106,14 @@ Supabase session, and the protected dashboard forwards its access token to
 readiness endpoint separately verifies the API-to-application-database connection. Authenticated
 Saved Jobs list and detail Server Components obtain the current Supabase access token through one
 server-only provider and call FastAPI through the centralized authenticated transport. FastAPI
-scopes the resulting domain queries to the token's user UUID before reading PostgreSQL.
+scopes the resulting domain queries to the token's user UUID before reading PostgreSQL. Lists and
+details show current status; detail pages read chronological immutable history and use a focused
+Server Action for status changes. Successful changes refresh server-authoritative job and history
+data.
 
 ## Future evolution, not yet implemented
 
-- Later v1 work adds search and filtering, application history, deterministic skill extraction,
+- Later v1 work adds search and filtering, deterministic skill extraction,
   and explainable analytics inside the FastAPI modular monolith.
 - Post-v1 releases may add a browser extension, resume intelligence, semantic retrieval, background
   processing, and applied AI only when their product requirements justify them.

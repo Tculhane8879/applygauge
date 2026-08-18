@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { type JobRead } from "@/lib/api/jobs";
 import {
   employmentTypeLabel,
@@ -15,6 +16,9 @@ export function JobSummary({ job }: { job: JobRead }) {
     >
       <h3 className="text-xl font-semibold text-slate-950">{job.title}</h3>
       <p className="mt-1 font-medium text-slate-700">{job.company.name}</p>
+      <div className="mt-3">
+        <JobStatusBadge status={job.current_status} />
+      </div>
       <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
         {job.location ? <span>{job.location}</span> : null}
         <span>{workArrangementLabel(job.work_arrangement)}</span>

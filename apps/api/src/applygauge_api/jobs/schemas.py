@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
+from applygauge_api.jobs.statuses import ApplicationStatus
+
 
 def _normalize_company_display_name(value: object) -> object:
     if isinstance(value, str):
@@ -142,6 +144,7 @@ class JobRead(BaseModel):
     location: str | None
     work_arrangement: WorkArrangement
     employment_type: EmploymentType
+    current_status: ApplicationStatus
     description: str | None
     created_at: datetime
     updated_at: datetime
@@ -149,3 +152,22 @@ class JobRead(BaseModel):
 
 class JobListResponse(BaseModel):
     items: list[JobRead]
+
+
+class StatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: ApplicationStatus
+
+
+class StatusEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    from_status: ApplicationStatus | None
+    to_status: ApplicationStatus
+    changed_at: datetime
+
+
+class StatusEventListResponse(BaseModel):
+    items: list[StatusEventRead]

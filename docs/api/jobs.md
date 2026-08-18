@@ -1,6 +1,6 @@
 # Jobs API
 
-Milestone 2 exposes authenticated CRUD operations for saved jobs. Domain
+Milestone 3 extends authenticated job CRUD with application status and immutable history. Domain
 data is stored in the ApplyGauge PostgreSQL database and is never read or written through Supabase
 database APIs.
 
@@ -30,6 +30,9 @@ Returns `201 Created`. The request accepts:
 The backend resolves a company within the authenticated user's private company namespace. Matching
 uses a whitespace-normalized, case-folded name, so spelling such as `Acme` and `ACME` reuses the
 same company for one user without sharing that company record with other users.
+
+Every new job starts with `current_status: "SAVED"`. Creation also appends the first immutable
+status event, from `null` to `SAVED`, using the job's creation timestamp.
 
 ## List jobs
 
@@ -69,6 +72,31 @@ Changing `company_name` resolves or creates a different company inside the authe
 private namespace and repoints only this job. It never renames the old company row. The old company
 is retained even when it no longer has an associated job.
 
+This general metadata endpoint does not accept `current_status`. Status changes use the dedicated
+pipeline endpoint below and always preserve history.
+
+## Change application status
+
+```http
+PATCH /api/v1/jobs/{job_id}/status
+```
+
+The request body is `{"status": "APPLIED"}` where status is one of `SAVED`, `APPLIED`,
+`SCREENING`, `INTERVIEW`, `OFFER`, `REJECTED`, or `WITHDRAWN`. All transitions are allowed so users
+can correct their records. The backend locks the owned job row, atomically updates its current
+status, and appends one immutable history event. Requesting the current status is rejected with
+`409 Conflict` and does not append an event.
+
+## Read status history
+
+```http
+GET /api/v1/jobs/{job_id}/status-events
+```
+
+Returns `{"items": [...]}` ordered by `changed_at ASC, id ASC`. Each event contains its ID,
+nullable previous status, new status, and database-generated timestamp. Ownership columns are not
+returned. History events cannot be edited or deleted independently.
+
 ## Delete a job
 
 ```http
@@ -76,17 +104,23 @@ DELETE /api/v1/jobs/{job_id}
 ```
 
 Successful deletion returns `204 No Content` with an empty body. Only the job is deleted; its
-company remains available for later reuse. ApplyGauge does not use soft deletion.
+company remains available for later reuse. The deleted job's status events are removed by database
+cascade because they cannot exist independently of their job. ApplyGauge does not use soft
+deletion.
 
 ## Response shape
 
 Job responses contain the job ID, a compact company object (`id` and `name`), title, optional URL,
-location and description, work arrangement, employment type, and creation/update timestamps.
+location and description, work arrangement, employment type, `current_status`, and
+creation/update timestamps.
 Ownership IDs and internal company normalization fields are not exposed.
 
 ## Current limitations
 
 The Next.js frontend provides authenticated list, detail, create, edit, and confirmed-delete flows.
 Mutations run through Server Actions that call this FastAPI API; the frontend does not write through
-Supabase database APIs. Application status, notes, skills, search, filtering, and analytics belong
-to later increments or milestones.
+Supabase database APIs. The frontend shows current status on job lists and details, renders
+immutable history, and changes status through an authenticated Server Action that calls the
+dedicated transition endpoint. History remains server-authoritative and refreshes from FastAPI
+after a successful transition. Notes, skills, search, filtering, and analytics belong to later
+increments or milestones.

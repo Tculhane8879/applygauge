@@ -1,9 +1,11 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { type JobRead } from "@/lib/api/jobs";
 
 import { JobDetail } from "./job-detail";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 const job: JobRead = {
   id: "job-id",
@@ -13,6 +15,7 @@ const job: JobRead = {
   location: "Seattle, WA",
   work_arrangement: "ONSITE",
   employment_type: "CONTRACT",
+  current_status: "APPLIED",
   description: "First line\nSecond line",
   created_at: "2026-08-17T12:00:00Z",
   updated_at: "2026-08-18T14:30:00Z",
@@ -21,7 +24,12 @@ const job: JobRead = {
 describe("JobDetail", () => {
   it("renders job data with readable labels and a safe external link", () => {
     render(
-      <JobDetail deleteAction={async () => ({ success: false })} job={job} />,
+      <JobDetail
+        deleteAction={async () => ({ success: false })}
+        history={[]}
+        job={job}
+        statusAction={vi.fn()}
+      />,
     );
 
     expect(
@@ -30,6 +38,8 @@ describe("JobDetail", () => {
     expect(screen.getByText("Acme")).toBeInTheDocument();
     expect(screen.getByText("On-site")).toBeInTheDocument();
     expect(screen.getByText("Contract")).toBeInTheDocument();
+    expect(screen.getAllByText("Applied")).toHaveLength(2);
+    expect(screen.getByLabelText("Application status")).toHaveValue("APPLIED");
     expect(screen.getByText(/First line/)).toHaveClass("whitespace-pre-wrap");
     const link = screen.getByRole("link", { name: /View job posting/ });
     expect(link).toHaveAttribute("href", job.job_url);
@@ -46,7 +56,9 @@ describe("JobDetail", () => {
     render(
       <JobDetail
         deleteAction={async () => ({ success: false })}
+        history={[]}
         job={{ ...job, job_url: null, location: null, description: null }}
+        statusAction={vi.fn()}
       />,
     );
 

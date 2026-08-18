@@ -1,4 +1,18 @@
-import { type EmploymentType, type WorkArrangement } from "@/lib/api/jobs";
+import {
+  type ApplicationStatus,
+  type EmploymentType,
+  type WorkArrangement,
+} from "@/lib/api/jobs";
+
+const applicationStatusLabels: Record<ApplicationStatus, string> = {
+  SAVED: "Saved",
+  APPLIED: "Applied",
+  SCREENING: "Screening",
+  INTERVIEW: "Interview",
+  OFFER: "Offer",
+  REJECTED: "Rejected",
+  WITHDRAWN: "Withdrawn",
+};
 
 const workArrangementLabels: Record<WorkArrangement, string> = {
   UNKNOWN: "Unknown",
@@ -32,6 +46,10 @@ export function workArrangementLabel(value: WorkArrangement) {
 
 export function employmentTypeLabel(value: EmploymentType) {
   return employmentTypeLabels[value];
+}
+
+export function applicationStatusLabel(value: ApplicationStatus) {
+  return applicationStatusLabels[value];
 }
 
 export function formatJobDate(value: string) {

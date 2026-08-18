@@ -7,13 +7,24 @@ from sqlalchemy.orm import Session
 from applygauge_api.auth.dependencies import get_current_user
 from applygauge_api.auth.models import AuthenticatedUser
 from applygauge_api.db.session import get_db_session
-from applygauge_api.jobs.schemas import JobCreate, JobListResponse, JobRead, JobUpdate
+from applygauge_api.jobs.schemas import (
+    JobCreate,
+    JobListResponse,
+    JobRead,
+    JobUpdate,
+    StatusEventListResponse,
+    StatusEventRead,
+    StatusUpdate,
+)
 from applygauge_api.jobs.service import (
     JobNotFoundError,
+    StatusNoOpError,
     create_job,
     delete_job,
     get_owned_job,
     list_owned_jobs,
+    list_status_events,
+    transition_job_status,
     update_job,
 )
 
@@ -75,6 +86,52 @@ def patch_job(
 ) -> JobRead:
     try:
         return JobRead.model_validate(update_job(session, current_user, job_id, payload))
+    except JobNotFoundError as exc:
+        raise job_not_found(exc) from exc
+
+
+@router.patch(
+    "/{job_id}/status",
+    response_model=JobRead,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"description": "Job not found"},
+        status.HTTP_409_CONFLICT: {"description": "Job already has the requested status"},
+    },
+)
+def patch_job_status(
+    job_id: UUID,
+    payload: StatusUpdate,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> JobRead:
+    try:
+        return JobRead.model_validate(transition_job_status(session, current_user, job_id, payload))
+    except JobNotFoundError as exc:
+        raise job_not_found(exc) from exc
+    except StatusNoOpError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The job already has the requested status.",
+        ) from exc
+
+
+@router.get(
+    "/{job_id}/status-events",
+    response_model=StatusEventListResponse,
+    responses={status.HTTP_404_NOT_FOUND: {"description": "Job not found"}},
+)
+def get_job_status_events(
+    job_id: UUID,
+    current_user: Annotated[AuthenticatedUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> StatusEventListResponse:
+    try:
+        return StatusEventListResponse(
+            items=[
+                StatusEventRead.model_validate(event)
+                for event in list_status_events(session, current_user.id, job_id)
+            ]
+        )
     except JobNotFoundError as exc:
         raise job_not_found(exc) from exc
 
