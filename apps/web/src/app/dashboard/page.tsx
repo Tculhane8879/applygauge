@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 
 import { IdentityPanel } from "@/components/auth/identity-panel";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -33,6 +34,15 @@ export default async function DashboardPage() {
   return (
     <DashboardShell email={email}>
       <IdentityPanel identity={identity} />
+      <Link
+        className="mt-6 block rounded-xl border border-blue-200 bg-blue-50 p-5 transition hover:border-blue-400"
+        href="/jobs"
+      >
+        <span className="text-lg font-semibold text-blue-950">Saved Jobs</span>
+        <span className="mt-1 block text-blue-800">
+          View your saved job opportunities.
+        </span>
+      </Link>
     </DashboardShell>
   );
 }

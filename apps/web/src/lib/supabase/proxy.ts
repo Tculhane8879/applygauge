@@ -5,7 +5,7 @@ import { hasAuthenticatedClaims } from "@/lib/auth/claims";
 
 import { getSupabaseConfig } from "./config";
 
-const protectedPaths = ["/dashboard"];
+const protectedPaths = ["/dashboard", "/jobs"];
 const anonymousOnlyPaths = ["/login", "/signup"];
 
 export function authRedirect(pathname: string, authenticated: boolean) {

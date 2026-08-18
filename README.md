@@ -10,8 +10,8 @@ FastAPI, and PostgreSQL.
 
 ## Project status
 
-ApplyGauge is at **Milestone 1: Authentication**. Email/password signup, confirmation, login,
-cookie-backed sessions, protected UI, sign-out, and FastAPI identity verification are implemented.
+ApplyGauge has completed **Milestone 2: Job Management**. Authentication and user-facing job CRUD
+are implemented; search, filtering, and the later application-pipeline features are not.
 
 Implemented today:
 
@@ -26,6 +26,8 @@ Implemented today:
 - a reproducible local Supabase Auth stack with ES256/JWKS and email capture;
 - FastAPI bearer-token validation and `GET /api/v1/auth/me`;
 - Next.js SSR signup, confirmation, login, protected dashboard, and sign-out.
+- PostgreSQL-backed, ownership-scoped company resolution and job CRUD through FastAPI;
+- authenticated Saved Jobs list, detail, create, edit, and delete flows in Next.js.
 
 The v1 product features described below are planned, not yet implemented.
 
@@ -88,8 +90,8 @@ applygauge/
 `-- package-lock.json        # Single Node dependency lockfile
 ```
 
-There is no shared package until genuinely shared code exists. There are no product database
-models or migrations in Milestone 0.
+There is no shared package until genuinely shared code exists. Milestone 2 introduced the first
+product database models and Alembic migration for user-owned companies and jobs.
 
 ## Prerequisites
 
@@ -181,10 +183,10 @@ The frontend runs at `http://localhost:3000` and displays its connection state t
 
 ## Environment variables
 
-| File | Visibility | Variables |
-| --- | --- | --- |
-| `.env` | Docker Compose/local only | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT` |
-| `apps/api/.env` | Private backend | `APP_ENV`, `DATABASE_URL`, `CORS_ORIGINS`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE` |
+| File                  | Visibility                     | Variables                                                                                      |
+| --------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `.env`                | Docker Compose/local only      | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`                           |
+| `apps/api/.env`       | Private backend                | `APP_ENV`, `DATABASE_URL`, `CORS_ORIGINS`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`             |
 | `apps/web/.env.local` | Browser-visible where prefixed | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
 
 `NEXT_PUBLIC_` values are compiled into browser code and must never contain secrets. Backend and
@@ -281,9 +283,9 @@ PostgreSQL service container. CI performs no deployment.
 ## Roadmap
 
 1. Milestone 0: engineering foundation — complete
-2. Milestone 1: authentication and ownership foundation — current
-3. Milestone 2: job management
-4. Milestone 3: application pipeline and history
+2. Milestone 1: authentication and ownership foundation — complete
+3. Milestone 2: job management — complete
+4. Milestone 3: application pipeline and history — next
 5. Milestone 4: deterministic skills engine
 6. Milestone 5: analytics
 7. Milestone 6: polish and v1 release
@@ -296,6 +298,6 @@ processing, and applied AI, but only after v1 is complete.
 ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid APIs, hosting, storage,
 or infrastructure, and core application logic must remain portable if free hosting plans change.
 
-Authentication is implemented, but the dashboard is intentionally only an identity-verification
-page. ApplyGauge still has no job records, application pipeline, skill extraction, notes, product
-analytics, or deployment automation.
+Authentication and manual saved-job CRUD are implemented. Job search, filtering, and selectable
+sorting are not yet implemented. ApplyGauge still has no application pipeline, skill extraction,
+notes, product analytics, or deployment automation.

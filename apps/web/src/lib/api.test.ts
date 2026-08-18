@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { authenticatedApiFetch } from "./api";
+import { ApiError, authenticatedApiFetch, baseApiFetch } from "./api";
 
 describe("authenticatedApiFetch", () => {
   it("adds a bearer token and preserves caller headers", async () => {
@@ -29,5 +29,31 @@ describe("authenticatedApiFetch", () => {
       ),
     ).rejects.toThrow("authenticated session");
     expect(fetchImplementation).not.toHaveBeenCalled();
+  });
+});
+
+describe("baseApiFetch", () => {
+  it("accepts an empty 204 response", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 204,
+      json: vi.fn(),
+    });
+    await expect(
+      baseApiFetch("/api/v1/jobs/1", undefined, fetchImplementation),
+    ).resolves.toBeUndefined();
+  });
+
+  it("exposes response status without exposing a raw response body", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      text: async () => "private backend details",
+    });
+
+    await expect(
+      baseApiFetch("/api/v1/jobs/missing", undefined, fetchImplementation),
+    ).rejects.toEqual(new ApiError(404));
+    expect(fetchImplementation.mock.results[0]?.value).toBeDefined();
   });
 });

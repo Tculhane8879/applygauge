@@ -4,14 +4,17 @@ from sqlalchemy import engine_from_config, pool
 
 from alembic import context
 from applygauge_api.core.config import get_settings
+from applygauge_api.db.base import Base
+from applygauge_api.jobs import models as job_models  # noqa: F401
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+database_url = config.attributes.get("database_url", get_settings().database_url)
+config.set_main_option("sqlalchemy.url", database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = None
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
