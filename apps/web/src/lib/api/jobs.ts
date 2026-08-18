@@ -3,6 +3,16 @@ import { type AccessTokenProvider, authenticatedApiFetch } from "@/lib/api";
 export type WorkArrangement = "UNKNOWN" | "REMOTE" | "HYBRID" | "ONSITE";
 export type EmploymentType =
   "UNKNOWN" | "FULL_TIME" | "PART_TIME" | "CONTRACT" | "INTERNSHIP";
+export const APPLICATION_STATUSES = [
+  "SAVED",
+  "APPLIED",
+  "SCREENING",
+  "INTERVIEW",
+  "OFFER",
+  "REJECTED",
+  "WITHDRAWN",
+] as const;
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
 export type CompanyRead = {
   id: string;
@@ -17,6 +27,7 @@ export type JobRead = {
   location: string | null;
   work_arrangement: WorkArrangement;
   employment_type: EmploymentType;
+  current_status: ApplicationStatus;
   description: string | null;
   created_at: string;
   updated_at: string;
@@ -24,6 +35,17 @@ export type JobRead = {
 
 export type JobListResponse = {
   items: JobRead[];
+};
+
+export type StatusEventRead = {
+  id: string;
+  from_status: ApplicationStatus | null;
+  to_status: ApplicationStatus;
+  changed_at: string;
+};
+
+export type StatusEventListResponse = {
+  items: StatusEventRead[];
 };
 
 export type JobWriteInput = {
@@ -45,6 +67,16 @@ export function getJobs(getAccessToken: AccessTokenProvider) {
 export function getJob(jobId: string, getAccessToken: AccessTokenProvider) {
   return authenticatedApiFetch<JobRead>(
     `/api/v1/jobs/${encodeURIComponent(jobId)}`,
+    getAccessToken,
+  );
+}
+
+export function getStatusEvents(
+  jobId: string,
+  getAccessToken: AccessTokenProvider,
+) {
+  return authenticatedApiFetch<StatusEventListResponse>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/status-events`,
     getAccessToken,
   );
 }
@@ -72,6 +104,22 @@ export function updateJob(
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
+    },
+  );
+}
+
+export function updateJobStatus(
+  jobId: string,
+  status: ApplicationStatus,
+  getAccessToken: AccessTokenProvider,
+) {
+  return authenticatedApiFetch<JobRead>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/status`,
+    getAccessToken,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
     },
   );
 }

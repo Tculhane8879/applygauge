@@ -14,6 +14,7 @@ const job: JobRead = {
   location: "Seattle",
   work_arrangement: "REMOTE",
   employment_type: "FULL_TIME",
+  current_status: "SAVED",
   created_at: "2026-08-17T12:00:00Z",
   updated_at: "2026-08-17T12:00:00Z",
 };
@@ -23,6 +24,7 @@ describe("JobForm", () => {
     render(<JobForm action={vi.fn()} cancelHref="/jobs" />);
     expect(screen.getByLabelText("Work arrangement")).toHaveValue("UNKNOWN");
     expect(screen.getByLabelText("Employment type")).toHaveValue("UNKNOWN");
+    expect(screen.queryByLabelText(/status/i)).not.toBeInTheDocument();
   });
 
   it("prepopulates every supported edit field", () => {
@@ -32,6 +34,7 @@ describe("JobForm", () => {
     expect(screen.getByLabelText("Description")).toHaveValue("Description");
     expect(screen.getByLabelText("Job URL")).toHaveValue(job.job_url);
     expect(screen.getByLabelText("Location")).toHaveValue("Seattle");
+    expect(screen.queryByLabelText(/status/i)).not.toBeInTheDocument();
   });
 
   it("displays action field and form errors", async () => {

@@ -29,6 +29,7 @@ const job: JobRead = {
   location: "Seattle",
   work_arrangement: "REMOTE",
   employment_type: "FULL_TIME",
+  current_status: "SAVED",
   created_at: "2026-08-17T12:00:00Z",
   updated_at: "2026-08-17T12:00:00Z",
 };

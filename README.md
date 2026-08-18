@@ -10,8 +10,9 @@ FastAPI, and PostgreSQL.
 
 ## Project status
 
-ApplyGauge has completed **Milestone 2: Job Management**. Authentication and user-facing job CRUD
-are implemented; search, filtering, and the later application-pipeline features are not.
+ApplyGauge has completed Milestones 0–2. **Milestone 3: Application Pipeline** is implemented and
+pending final developer browser acceptance. Authentication, user-facing job CRUD, current status,
+immutable history, and authenticated status changes are implemented.
 
 Implemented today:
 
@@ -28,6 +29,9 @@ Implemented today:
 - Next.js SSR signup, confirmation, login, protected dashboard, and sign-out.
 - PostgreSQL-backed, ownership-scoped company resolution and job CRUD through FastAPI;
 - authenticated Saved Jobs list, detail, create, edit, and delete flows in Next.js.
+- checked current-status snapshots and immutable application-status history;
+- atomic, row-locked status transitions with ownership protection;
+- frontend status badges, chronological history, and authenticated status changes.
 
 The v1 product features described below are planned, not yet implemented.
 
@@ -285,7 +289,7 @@ PostgreSQL service container. CI performs no deployment.
 1. Milestone 0: engineering foundation — complete
 2. Milestone 1: authentication and ownership foundation — complete
 3. Milestone 2: job management — complete
-4. Milestone 3: application pipeline and history — next
+4. Milestone 3: application pipeline and history — implementation complete; pending final developer acceptance
 5. Milestone 4: deterministic skills engine
 6. Milestone 5: analytics
 7. Milestone 6: polish and v1 release
@@ -298,6 +302,7 @@ processing, and applied AI, but only after v1 is complete.
 ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid APIs, hosting, storage,
 or infrastructure, and core application logic must remain portable if free hosting plans change.
 
-Authentication and manual saved-job CRUD are implemented. Job search, filtering, and selectable
-sorting are not yet implemented. ApplyGauge still has no application pipeline, skill extraction,
-notes, product analytics, or deployment automation.
+Authentication, manual saved-job CRUD, and the application pipeline are implemented. Every job
+starts as Saved; users can view and change current status and inspect immutable chronological
+history. Create and edit forms remain metadata-only. Job search, filtering, selectable sorting,
+skills, notes, product analytics, and deployment automation are not yet implemented.

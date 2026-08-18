@@ -5,13 +5,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from applygauge_api.auth.models import AuthenticatedUser
-from applygauge_api.jobs.models import Company, Job
+from applygauge_api.jobs.models import Company, Job, StatusEvent
 from applygauge_api.jobs.normalization import normalize_company_name
-from applygauge_api.jobs.schemas import JobCreate, JobUpdate
+from applygauge_api.jobs.schemas import JobCreate, JobUpdate, StatusUpdate
+from applygauge_api.jobs.statuses import ApplicationStatus
 
 
 class JobNotFoundError(Exception):
     """Raised when an owned job does not exist."""
+
+
+class StatusNoOpError(Exception):
+    """Raised when a requested status equals the current status."""
 
 
 def _find_company(session: Session, user_id: UUID, normalized_name: str) -> Company | None:
@@ -58,8 +63,19 @@ def create_job(session: Session, current_user: AuthenticatedUser, payload: JobCr
             work_arrangement=payload.work_arrangement.value,
             employment_type=payload.employment_type.value,
             description=payload.description,
+            current_status=ApplicationStatus.SAVED.value,
         )
         session.add(job)
+        session.flush()
+        session.add(
+            StatusEvent(
+                user_id=current_user.id,
+                job_id=job.id,
+                from_status=None,
+                to_status=ApplicationStatus.SAVED.value,
+                changed_at=job.created_at,
+            )
+        )
         session.flush()
         session.commit()
         return job
@@ -86,6 +102,58 @@ def get_owned_job(session: Session, user_id: UUID, job_id: UUID) -> Job:
     if job is None:
         raise JobNotFoundError
     return job
+
+
+def transition_job_status(
+    session: Session,
+    current_user: AuthenticatedUser,
+    job_id: UUID,
+    payload: StatusUpdate,
+) -> Job:
+    try:
+        job = session.scalar(
+            select(Job)
+            .options(joinedload(Job.company))
+            .where(Job.id == job_id, Job.user_id == current_user.id)
+            .with_for_update(of=Job)
+        )
+        if job is None:
+            raise JobNotFoundError
+        if job.current_status == payload.status.value:
+            raise StatusNoOpError
+
+        previous_status = job.current_status
+        job.current_status = payload.status.value
+        session.add(
+            StatusEvent(
+                user_id=current_user.id,
+                job_id=job.id,
+                from_status=previous_status,
+                to_status=payload.status.value,
+            )
+        )
+        session.flush()
+        session.commit()
+        return job
+    except (JobNotFoundError, StatusNoOpError):
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
+        raise
+
+
+def list_status_events(session: Session, user_id: UUID, job_id: UUID) -> list[StatusEvent]:
+    owned_job_id = session.scalar(select(Job.id).where(Job.id == job_id, Job.user_id == user_id))
+    if owned_job_id is None:
+        raise JobNotFoundError
+    return list(
+        session.scalars(
+            select(StatusEvent)
+            .where(StatusEvent.user_id == user_id, StatusEvent.job_id == job_id)
+            .order_by(StatusEvent.changed_at.asc(), StatusEvent.id.asc())
+        ).all()
+    )
 
 
 def update_job(

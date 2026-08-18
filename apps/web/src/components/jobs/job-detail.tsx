@@ -1,7 +1,11 @@
 import Link from "next/link";
 
 import { DeleteJobButton } from "@/components/jobs/delete-job-button";
-import { type JobRead } from "@/lib/api/jobs";
+import { JobStatusBadge } from "@/components/jobs/job-status-badge";
+import { JobStatusControl } from "@/components/jobs/job-status-control";
+import { StatusHistory } from "@/components/jobs/status-history";
+import { type JobRead, type StatusEventRead } from "@/lib/api/jobs";
+import { type StatusActionState } from "@/app/jobs/actions";
 import { type JobActionState } from "@/lib/jobs/form";
 import {
   employmentTypeLabel,
@@ -11,15 +15,29 @@ import {
 
 export function JobDetail({
   deleteAction,
+  history,
   job,
+  statusAction,
 }: {
   deleteAction: () => Promise<JobActionState>;
+  history: StatusEventRead[] | null;
   job: JobRead;
+  statusAction: (status: string) => Promise<StatusActionState>;
 }) {
   return (
     <article>
       <p className="font-semibold text-blue-700">{job.company.name}</p>
       <h2 className="mt-2 text-3xl font-bold text-slate-950">{job.title}</h2>
+      <div className="mt-4">
+        <JobStatusBadge status={job.current_status} />
+      </div>
+      <div className="mt-5 max-w-sm">
+        <JobStatusControl
+          action={statusAction}
+          currentStatus={job.current_status}
+          key={job.current_status}
+        />
+      </div>
       <div className="mt-5 flex items-start gap-5">
         <Link
           className="font-semibold text-blue-700 hover:underline"
@@ -80,6 +98,8 @@ export function JobDetail({
           </p>
         )}
       </section>
+
+      <StatusHistory events={history} />
     </article>
   );
 }

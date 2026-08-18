@@ -1,7 +1,19 @@
+from datetime import UTC, datetime
+from uuid import uuid4
+
 import pytest
 from pydantic import ValidationError
 
-from applygauge_api.jobs.schemas import EmploymentType, JobCreate, JobUpdate, WorkArrangement
+from applygauge_api.jobs.schemas import (
+    EmploymentType,
+    JobCreate,
+    JobRead,
+    JobUpdate,
+    StatusEventRead,
+    StatusUpdate,
+    WorkArrangement,
+)
+from applygauge_api.jobs.statuses import ApplicationStatus
 
 
 def valid_payload(**overrides: object) -> dict[str, object]:
@@ -191,3 +203,55 @@ def test_invalid_update_enum_is_rejected(field: str, value: str) -> None:
 def test_job_update_rejects_generated_and_ownership_fields(field: str) -> None:
     with pytest.raises(ValidationError):
         JobUpdate.model_validate({field: "not-accepted"})
+
+
+@pytest.mark.parametrize("status", list(ApplicationStatus))
+def test_status_update_accepts_every_application_status(status: ApplicationStatus) -> None:
+    assert StatusUpdate.model_validate({"status": status}).status is status
+
+
+@pytest.mark.parametrize(
+    "payload", [{}, {"status": None}, {"status": "INVALID"}, {"status": "SAVED", "extra": True}]
+)
+def test_status_update_rejects_invalid_payloads(payload: dict[str, object]) -> None:
+    with pytest.raises(ValidationError):
+        StatusUpdate.model_validate(payload)
+
+
+def test_job_read_serializes_current_status_without_changing_existing_fields() -> None:
+    job_id, company_id = uuid4(), uuid4()
+    result = JobRead.model_validate(
+        {
+            "id": job_id,
+            "company": {"id": company_id, "name": "Acme"},
+            "title": "Engineer",
+            "job_url": None,
+            "location": None,
+            "work_arrangement": "UNKNOWN",
+            "employment_type": "UNKNOWN",
+            "current_status": "SAVED",
+            "description": None,
+            "created_at": datetime.now(UTC),
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    assert result.id == job_id
+    assert result.company.id == company_id
+    assert result.current_status is ApplicationStatus.SAVED
+
+
+@pytest.mark.parametrize(("from_status", "to_status"), [(None, "SAVED"), ("SAVED", "APPLIED")])
+def test_status_event_read_serializes_without_ownership_fields(
+    from_status: str | None, to_status: str
+) -> None:
+    result = StatusEventRead.model_validate(
+        {
+            "id": uuid4(),
+            "user_id": uuid4(),
+            "job_id": uuid4(),
+            "from_status": from_status,
+            "to_status": to_status,
+            "changed_at": datetime.now(UTC),
+        }
+    )
+    assert result.model_dump().keys() == {"id", "from_status", "to_status", "changed_at"}

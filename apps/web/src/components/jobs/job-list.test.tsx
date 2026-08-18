@@ -13,6 +13,7 @@ const job: JobRead = {
   location: "Seattle, WA",
   work_arrangement: "HYBRID",
   employment_type: "FULL_TIME",
+  current_status: "SCREENING",
   description: null,
   created_at: "2026-08-17T12:00:00Z",
   updated_at: "2026-08-17T12:00:00Z",
@@ -36,6 +37,10 @@ describe("JobList", () => {
     expect(screen.getByText("Seattle, WA")).toBeInTheDocument();
     expect(screen.getByText("Hybrid")).toBeInTheDocument();
     expect(screen.getByText("Full-time")).toBeInTheDocument();
+    expect(screen.getByText("Screening")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: /status/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute(
       "href",
       "/jobs/11111111-1111-4111-8111-111111111111",
