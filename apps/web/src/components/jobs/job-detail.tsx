@@ -3,9 +3,17 @@ import Link from "next/link";
 import { DeleteJobButton } from "@/components/jobs/delete-job-button";
 import { JobStatusBadge } from "@/components/jobs/job-status-badge";
 import { JobStatusControl } from "@/components/jobs/job-status-control";
+import { JobSkills } from "@/components/jobs/job-skills";
 import { StatusHistory } from "@/components/jobs/status-history";
-import { type JobRead, type StatusEventRead } from "@/lib/api/jobs";
-import { type StatusActionState } from "@/app/jobs/actions";
+import {
+  type JobRead,
+  type SkillRead,
+  type StatusEventRead,
+} from "@/lib/api/jobs";
+import {
+  type SkillActionState,
+  type StatusActionState,
+} from "@/app/jobs/actions";
 import { type JobActionState } from "@/lib/jobs/form";
 import {
   employmentTypeLabel,
@@ -14,14 +22,20 @@ import {
 } from "@/lib/jobs/presentation";
 
 export function JobDetail({
+  addSkillAction,
   deleteAction,
   history,
   job,
+  removeSkillAction,
+  skills,
   statusAction,
 }: {
+  addSkillAction: (name: string) => Promise<SkillActionState>;
   deleteAction: () => Promise<JobActionState>;
   history: StatusEventRead[] | null;
   job: JobRead;
+  removeSkillAction: (skillId: string) => Promise<SkillActionState>;
+  skills: SkillRead[] | null;
   statusAction: (status: string) => Promise<StatusActionState>;
 }) {
   return (
@@ -99,6 +113,11 @@ export function JobDetail({
         )}
       </section>
 
+      <JobSkills
+        addAction={addSkillAction}
+        removeAction={removeSkillAction}
+        skills={skills}
+      />
       <StatusHistory events={history} />
     </article>
   );

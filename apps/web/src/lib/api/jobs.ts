@@ -48,6 +48,26 @@ export type StatusEventListResponse = {
   items: StatusEventRead[];
 };
 
+export type SkillCategory =
+  | "LANGUAGE"
+  | "FRAMEWORK"
+  | "DATABASE"
+  | "CLOUD"
+  | "DEVOPS"
+  | "MESSAGING"
+  | "TESTING"
+  | "OTHER";
+
+export type SkillRead = {
+  id: string;
+  name: string;
+  category: SkillCategory;
+};
+
+export type SkillListResponse = {
+  items: SkillRead[];
+};
+
 export type JobWriteInput = {
   company_name: string;
   title: string;
@@ -78,6 +98,44 @@ export function getStatusEvents(
   return authenticatedApiFetch<StatusEventListResponse>(
     `/api/v1/jobs/${encodeURIComponent(jobId)}/status-events`,
     getAccessToken,
+  );
+}
+
+export function getJobSkills(
+  jobId: string,
+  getAccessToken: AccessTokenProvider,
+) {
+  return authenticatedApiFetch<SkillListResponse>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/skills`,
+    getAccessToken,
+  );
+}
+
+export function addJobSkill(
+  jobId: string,
+  name: string,
+  getAccessToken: AccessTokenProvider,
+) {
+  return authenticatedApiFetch<SkillRead>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/skills`,
+    getAccessToken,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    },
+  );
+}
+
+export function removeJobSkill(
+  jobId: string,
+  skillId: string,
+  getAccessToken: AccessTokenProvider,
+) {
+  return authenticatedApiFetch<void>(
+    `/api/v1/jobs/${encodeURIComponent(jobId)}/skills/${encodeURIComponent(skillId)}`,
+    getAccessToken,
+    { method: "DELETE" },
   );
 }
 

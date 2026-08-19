@@ -7,9 +7,11 @@ import { ApiError } from "@/lib/api";
 import {
   APPLICATION_STATUSES,
   type ApplicationStatus,
+  addJobSkill,
   createJob,
   deleteJob,
   getJob,
+  removeJobSkill,
   updateJob,
   updateJobStatus,
 } from "@/lib/api/jobs";
@@ -115,6 +117,75 @@ export async function updateJobStatusAction(
   revalidatePath("/jobs");
   revalidatePath(`/jobs/${jobId}`);
   return { success: true };
+}
+
+export type SkillActionState =
+  { success: true } | { success: false; formError: string };
+
+export async function addJobSkillAction(
+  jobId: string,
+  submittedName: string,
+): Promise<SkillActionState> {
+  const getAccessToken = await requireAuthenticatedApiSession();
+  if (!isValidSkillInput(submittedName)) {
+    return { success: false, formError: "Enter a valid skill name." };
+  }
+  try {
+    await addJobSkill(jobId, submittedName, getAccessToken);
+  } catch (error) {
+    if (error instanceof ApiError) {
+      if (error.status === 422) {
+        return {
+          success: false,
+          formError: "That skill isn't available in the catalog yet.",
+        };
+      }
+      if (error.status === 404) {
+        return {
+          success: false,
+          formError: "This job is no longer available.",
+        };
+      }
+    }
+    return {
+      success: false,
+      formError: "We couldn't update these skills. Please try again.",
+    };
+  }
+  revalidatePath(`/jobs/${jobId}`);
+  return { success: true };
+}
+
+export async function removeJobSkillAction(
+  jobId: string,
+  skillId: string,
+): Promise<SkillActionState> {
+  const getAccessToken = await requireAuthenticatedApiSession();
+  try {
+    await removeJobSkill(jobId, skillId, getAccessToken);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return {
+        success: false,
+        formError: "This job is no longer available.",
+      };
+    }
+    return {
+      success: false,
+      formError: "We couldn't update these skills. Please try again.",
+    };
+  }
+  revalidatePath(`/jobs/${jobId}`);
+  return { success: true };
+}
+
+function isValidSkillInput(value: string): boolean {
+  const trimmed = value.trim();
+  return (
+    trimmed.length >= 1 &&
+    trimmed.length <= 100 &&
+    !/[\p{Cc}\p{Cf}]/u.test(trimmed)
+  );
 }
 
 function isApplicationStatus(value: string): value is ApplicationStatus {

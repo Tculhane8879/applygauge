@@ -6,6 +6,7 @@ from alembic import context
 from applygauge_api.core.config import get_settings
 from applygauge_api.db.base import Base
 from applygauge_api.jobs import models as job_models  # noqa: F401
+from applygauge_api.skills import models as skill_models  # noqa: F401
 
 config = context.config
 database_url = config.attributes.get("database_url", get_settings().database_url)
