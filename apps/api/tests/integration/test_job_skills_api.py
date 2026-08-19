@@ -1,21 +1,26 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
-from threading import Barrier, Thread
+from threading import Barrier, Event, Thread
+from time import monotonic
 from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete, event, func, select
+from httpx import Response
+from sqlalchemy import create_engine, delete, event, func, select, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from applygauge_api.auth.dependencies import get_current_user
 from applygauge_api.auth.models import AuthenticatedUser
 from applygauge_api.db.session import get_db_session
+from applygauge_api.jobs import service as job_service
 from applygauge_api.jobs.models import Company, Job
 from applygauge_api.jobs.normalization import normalize_company_name
+from applygauge_api.jobs.schemas import JobUpdate
 from applygauge_api.main import app
 from applygauge_api.skills import service as skill_service
-from applygauge_api.skills.models import JobSkill, Skill, SkillTerm
+from applygauge_api.skills.models import JobSkill, JobSkillSuppression, Skill, SkillTerm
 from applygauge_api.skills.schemas import SkillAdd
 
 pytestmark = pytest.mark.integration
@@ -78,6 +83,21 @@ def seeded_skill(session: Session, name: str) -> Skill:
     return skill
 
 
+def wait_until_blocked(engine: Engine, pid: int) -> bool:
+    deadline = monotonic() + 5
+    with engine.connect() as observer:
+        while monotonic() < deadline:
+            if observer.scalar(
+                text("SELECT cardinality(pg_blocking_pids(:pid)) > 0"), {"pid": pid}
+            ):
+                return True
+    return False
+
+
+def skill_sources(response: Response) -> dict[str, list[str]]:
+    return {item["name"]: item["sources"] for item in response.json()["items"]}
+
+
 def test_owner_lists_empty_and_canonical_skills_in_deterministic_order(
     database_session: Session,
 ) -> None:
@@ -96,6 +116,7 @@ def test_owner_lists_empty_and_canonical_skills_in_deterministic_order(
         "TypeScript",
     ]
     assert all("user_id" not in item and "job_id" not in item for item in populated.json()["items"])
+    assert all(item["sources"] == ["MANUAL"] for item in populated.json()["items"])
 
 
 def test_add_canonical_skill_creates_private_association(database_session: Session) -> None:
@@ -105,6 +126,7 @@ def test_add_canonical_skill_creates_private_association(database_session: Sessi
 
     assert response.status_code == 201
     assert response.json()["name"] == "Python"
+    assert response.json()["sources"] == ["MANUAL"]
     skill_id = UUID(response.json()["id"])
     association = database_session.get(JobSkill, (job.id, skill_id))
     assert association is not None and association.user_id == USER_A.id
@@ -163,6 +185,10 @@ def test_duplicate_add_is_idempotent(database_session: Session, names: tuple[str
         )
         == 1
     )
+    stored = database_session.scalar(select(JobSkill).where(JobSkill.job_id == job.id))
+    assert stored is not None
+    assert stored.is_manual is True
+    assert stored.is_detected is False
 
 
 def test_unknown_skill_is_422_without_catalog_or_association_mutation(
@@ -213,10 +239,143 @@ def test_remove_is_idempotent_and_preserves_global_catalog(database_session: Ses
     assert first.status_code == repeated.status_code == unknown.status_code == 204
     assert database_session.get(JobSkill, (job.id, python.id)) is None
     assert database_session.get(Skill, python.id) is not None
+    assert database_session.get(JobSkillSuppression, (job.id, python.id)) is None
     assert (
         database_session.scalar(select(SkillTerm).where(SkillTerm.skill_id == python.id))
         is not None
     )
+
+
+def test_provenance_transitions_and_suppression_lifecycle(database_session: Session) -> None:
+    job = add_job(database_session, USER_A)
+    python = seeded_skill(database_session, "Python")
+    docker = seeded_skill(database_session, "Docker")
+    react = seeded_skill(database_session, "React")
+    with client_as(database_session, USER_A) as client:
+        initial = client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Python and Docker"})
+        detected = client.get(f"/api/v1/jobs/{job.id}/skills")
+        manual_upgrade = client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Python"})
+        manual_react = client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "React"})
+        changed = client.patch(
+            f"/api/v1/jobs/{job.id}", json={"description": "Python and Kubernetes"}
+        )
+        after_change = client.get(f"/api/v1/jobs/{job.id}/skills")
+        removed = client.delete(f"/api/v1/jobs/{job.id}/skills/{python.id}")
+        suppression_created = (
+            database_session.get(JobSkillSuppression, (job.id, python.id)) is not None
+        )
+        still_matching = client.patch(
+            f"/api/v1/jobs/{job.id}", json={"description": "Python and PostgreSQL"}
+        )
+        suppressed = client.get(f"/api/v1/jobs/{job.id}/skills")
+        no_longer_matching = client.patch(
+            f"/api/v1/jobs/{job.id}", json={"description": "PostgreSQL"}
+        )
+        matching_again = client.patch(
+            f"/api/v1/jobs/{job.id}", json={"description": "Python and PostgreSQL"}
+        )
+        manually_restored = client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Python"})
+        redetected = client.patch(
+            f"/api/v1/jobs/{job.id}", json={"description": "Python and PostgreSQL and SQL"}
+        )
+        cleared = client.patch(f"/api/v1/jobs/{job.id}", json={"description": None})
+        final = client.get(f"/api/v1/jobs/{job.id}/skills")
+
+    assert all(
+        response.status_code == 200
+        for response in (
+            initial,
+            changed,
+            still_matching,
+            no_longer_matching,
+            matching_again,
+            redetected,
+            cleared,
+        )
+    )
+    assert skill_sources(detected) == {"Docker": ["DETECTED"], "Python": ["DETECTED"]}
+    assert manual_upgrade.status_code == 200
+    assert manual_upgrade.json()["sources"] == ["MANUAL", "DETECTED"]
+    assert manual_react.status_code == 201
+    assert skill_sources(after_change) == {
+        "Kubernetes": ["DETECTED"],
+        "Python": ["MANUAL", "DETECTED"],
+        "React": ["MANUAL"],
+    }
+    assert database_session.get(JobSkill, (job.id, docker.id)) is None
+    assert removed.status_code == 204
+    assert suppression_created
+    assert "Python" not in skill_sources(suppressed)
+    assert manually_restored.status_code == 201
+    assert manually_restored.json()["sources"] == ["MANUAL"]
+    assert database_session.get(JobSkillSuppression, (job.id, python.id)) is None
+    assert skill_sources(final) == {"Python": ["MANUAL"], "React": ["MANUAL"]}
+    assert database_session.get(JobSkillSuppression, (job.id, python.id)) is None
+    assert database_session.get(JobSkillSuppression, (job.id, react.id)) is None
+
+
+def test_detected_and_dual_removal_create_suppression(database_session: Session) -> None:
+    job = add_job(database_session, USER_A)
+    python = seeded_skill(database_session, "Python")
+    docker = seeded_skill(database_session, "Docker")
+    with client_as(database_session, USER_A) as client:
+        client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Python Docker"})
+        client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Python"})
+        assert client.delete(f"/api/v1/jobs/{job.id}/skills/{python.id}").status_code == 204
+        assert client.delete(f"/api/v1/jobs/{job.id}/skills/{docker.id}").status_code == 204
+    assert database_session.get(JobSkillSuppression, (job.id, python.id)) is not None
+    assert database_session.get(JobSkillSuppression, (job.id, docker.id)) is not None
+    assert database_session.get(JobSkill, (job.id, python.id)) is None
+    assert database_session.get(JobSkill, (job.id, docker.id)) is None
+
+
+def test_clearing_description_preserves_suppression(database_session: Session) -> None:
+    job = add_job(database_session, USER_A)
+    python = seeded_skill(database_session, "Python")
+    with client_as(database_session, USER_A) as client:
+        client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Python"})
+        client.delete(f"/api/v1/jobs/{job.id}/skills/{python.id}")
+        cleared = client.patch(f"/api/v1/jobs/{job.id}", json={"description": None})
+    assert cleared.status_code == 200
+    assert database_session.get(JobSkillSuppression, (job.id, python.id)) is not None
+    assert database_session.get(JobSkill, (job.id, python.id)) is None
+
+
+def test_unchanged_or_omitted_description_skips_reconciliation(
+    database_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    job = add_job(database_session, USER_A)
+    job.description = "Python"
+    skill_service.reconcile_detected_skills(database_session, job, job.description)
+
+    def fail_term_load(_session: Session) -> list[object]:
+        raise AssertionError("extraction terms should not be loaded")
+
+    monkeypatch.setattr(skill_service, "load_extraction_terms", fail_term_load)
+    with client_as(database_session, USER_A) as client:
+        unchanged = client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Python"})
+        omitted = client.patch(f"/api/v1/jobs/{job.id}", json={"title": "Updated"})
+    assert unchanged.status_code == omitted.status_code == 200
+
+
+def test_provenance_updates_preserve_visible_association_created_at(
+    database_session: Session,
+) -> None:
+    job = add_job(database_session, USER_A)
+    python = seeded_skill(database_session, "Python")
+    with client_as(database_session, USER_A) as client:
+        client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Python"})
+        manual = database_session.get(JobSkill, (job.id, python.id))
+        assert manual is not None
+        created_at = manual.created_at
+        client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Python"})
+        database_session.expire_all()
+        dual = database_session.get(JobSkill, (job.id, python.id))
+        assert dual is not None and dual.created_at == created_at
+        client.patch(f"/api/v1/jobs/{job.id}", json={"description": None})
+        database_session.expire_all()
+        restored = database_session.get(JobSkill, (job.id, python.id))
+    assert restored is not None and restored.created_at == created_at
 
 
 def test_remove_does_not_touch_another_jobs_association(database_session: Session) -> None:
@@ -275,7 +434,8 @@ def test_job_delete_cascades_associations_and_retains_catalog(database_session: 
     postgres = seeded_skill(database_session, "PostgreSQL")
     with client_as(database_session, USER_A) as client:
         client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Python"})
-        client.post(f"/api/v1/jobs/{job.id}/skills", json={"name": "Postgres"})
+        client.patch(f"/api/v1/jobs/{job.id}", json={"description": "Postgres"})
+        client.delete(f"/api/v1/jobs/{job.id}/skills/{postgres.id}")
         response = client.delete(f"/api/v1/jobs/{job.id}")
     assert response.status_code == 204
     assert (
@@ -286,6 +446,7 @@ def test_job_delete_cascades_associations_and_retains_catalog(database_session: 
     )
     assert database_session.get(Skill, python.id) is not None
     assert database_session.get(Skill, postgres.id) is not None
+    assert database_session.get(JobSkillSuppression, (job.id, postgres.id)) is None
 
 
 def test_job_metadata_writes_cannot_mutate_skill_associations(database_session: Session) -> None:
@@ -340,7 +501,7 @@ def test_add_failure_rolls_back_association(database_session: Session) -> None:
     )
 
 
-def test_concurrent_duplicate_adds_use_database_conflict_resolution(
+def test_concurrent_duplicate_adds_serialize_on_owned_job(
     migrated_database_url: str,
 ) -> None:
     engine = create_engine(migrated_database_url)
@@ -353,31 +514,20 @@ def test_concurrent_duplicate_adds_use_database_conflict_resolution(
         setup_session.commit()
         job_id, company_id = job.id, job.company_id
 
-    def synchronize_inserts(
-        _connection: object,
-        _cursor: object,
-        statement: str,
-        _parameters: object,
-        _context: object,
-        _executemany: bool,
-    ) -> None:
-        if statement.startswith("INSERT INTO job_skills"):
-            barrier.wait()
-
     def add_from_independent_session() -> None:
         try:
             with Session(engine) as session:
+                barrier.wait()
                 result = skill_service.add_job_skill(
                     session,
                     USER_A.id,
                     job_id,
                     SkillAdd(name="Postgres"),
                 )
-                results.append((result.created, result.skill.id))
+                results.append((result.created, result.association.skill_id))
         except BaseException as exc:
             errors.append(exc)
 
-    event.listen(engine, "before_cursor_execute", synchronize_inserts)
     try:
         workers = [Thread(target=add_from_independent_session, daemon=True) for _ in range(2)]
         for worker in workers:
@@ -390,7 +540,7 @@ def test_concurrent_duplicate_adds_use_database_conflict_resolution(
         assert len({skill_id for _created, skill_id in results}) == 1
         with Session(engine) as verification_session:
             stored = skill_service.list_job_skills(verification_session, USER_A.id, job_id)
-            assert [skill.name for skill in stored] == ["PostgreSQL"]
+            assert [association.skill.name for association in stored] == ["PostgreSQL"]
             assert (
                 verification_session.scalar(
                     select(func.count()).select_from(JobSkill).where(JobSkill.job_id == job_id)
@@ -398,9 +548,223 @@ def test_concurrent_duplicate_adds_use_database_conflict_resolution(
                 == 1
             )
     finally:
-        event.remove(engine, "before_cursor_execute", synchronize_inserts)
         with Session(engine) as cleanup_session:
             cleanup_session.execute(delete(Job).where(Job.id == job_id))
             cleanup_session.execute(delete(Company).where(Company.id == company_id))
             cleanup_session.commit()
+        engine.dispose()
+
+
+def test_manual_add_waits_for_description_reconciliation_job_lock(
+    migrated_database_url: str,
+) -> None:
+    engine = create_engine(migrated_database_url)
+    started = Event()
+    finished = Event()
+    worker_pid: list[int] = []
+    errors: list[BaseException] = []
+    with Session(engine) as setup:
+        job = add_job(setup, USER_A)
+        setup.commit()
+        job_id, company_id = job.id, job.company_id
+
+    def manual_add() -> None:
+        try:
+            with Session(engine) as session:
+                worker_pid.append(session.scalar(select(func.pg_backend_pid())) or 0)
+                started.set()
+                skill_service.add_job_skill(session, USER_A.id, job_id, SkillAdd(name="Python"))
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    try:
+        with Session(engine) as first:
+            locked = skill_service.require_owned_job_locked(first, USER_A.id, job_id)
+            worker = Thread(target=manual_add, daemon=True)
+            worker.start()
+            assert started.wait(timeout=5)
+            assert wait_until_blocked(engine, worker_pid[0])
+            locked.description = "Python"
+            skill_service.reconcile_detected_skills(first, locked, locked.description)
+            first.commit()
+        assert finished.wait(timeout=5)
+        worker.join(timeout=5)
+        assert errors == [] and not worker.is_alive()
+        with Session(engine) as verify:
+            python = seeded_skill(verify, "Python")
+            association = verify.get(JobSkill, (job_id, python.id))
+            assert association is not None
+            assert association.is_manual is association.is_detected is True
+            assert verify.get(JobSkillSuppression, (job_id, python.id)) is None
+    finally:
+        with Session(engine) as cleanup:
+            cleanup.execute(delete(Job).where(Job.id == job_id))
+            cleanup.execute(delete(Company).where(Company.id == company_id))
+            cleanup.commit()
+        engine.dispose()
+
+
+def test_remove_waits_for_reconciliation_and_suppresses_detection(
+    migrated_database_url: str,
+) -> None:
+    engine = create_engine(migrated_database_url)
+    started = Event()
+    finished = Event()
+    worker_pid: list[int] = []
+    errors: list[BaseException] = []
+    with Session(engine) as setup:
+        job = add_job(setup, USER_A)
+        job.description = "Python"
+        skill_service.reconcile_detected_skills(setup, job, job.description)
+        python = seeded_skill(setup, "Python")
+        setup.commit()
+        job_id, company_id, python_id = job.id, job.company_id, python.id
+
+    def remove() -> None:
+        try:
+            with Session(engine) as session:
+                worker_pid.append(session.scalar(select(func.pg_backend_pid())) or 0)
+                started.set()
+                skill_service.remove_job_skill(session, USER_A.id, job_id, python_id)
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    try:
+        with Session(engine) as first:
+            locked = skill_service.require_owned_job_locked(first, USER_A.id, job_id)
+            worker = Thread(target=remove, daemon=True)
+            worker.start()
+            assert started.wait(timeout=5)
+            assert wait_until_blocked(engine, worker_pid[0])
+            skill_service.reconcile_detected_skills(first, locked, "Python and Docker")
+            first.commit()
+        assert finished.wait(timeout=5)
+        worker.join(timeout=5)
+        assert errors == [] and not worker.is_alive()
+        with Session(engine) as verify:
+            assert verify.get(JobSkill, (job_id, python_id)) is None
+            assert verify.get(JobSkillSuppression, (job_id, python_id)) is not None
+    finally:
+        with Session(engine) as cleanup:
+            cleanup.execute(delete(Job).where(Job.id == job_id))
+            cleanup.execute(delete(Company).where(Company.id == company_id))
+            cleanup.commit()
+        engine.dispose()
+
+
+def test_concurrent_description_updates_leave_last_locked_detection_set(
+    migrated_database_url: str,
+) -> None:
+    engine = create_engine(migrated_database_url)
+    started = Event()
+    finished = Event()
+    worker_pid: list[int] = []
+    errors: list[BaseException] = []
+    with Session(engine) as setup:
+        job = add_job(setup, USER_A)
+        setup.commit()
+        job_id, company_id = job.id, job.company_id
+
+    def update_to_kubernetes() -> None:
+        try:
+            with Session(engine) as session:
+                worker_pid.append(session.scalar(select(func.pg_backend_pid())) or 0)
+                started.set()
+                job_service.update_job(
+                    session,
+                    USER_A,
+                    job_id,
+                    JobUpdate.model_validate({"description": "Kubernetes"}),
+                )
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    try:
+        with Session(engine) as first:
+            locked = skill_service.require_owned_job_locked(first, USER_A.id, job_id)
+            worker = Thread(target=update_to_kubernetes, daemon=True)
+            worker.start()
+            assert started.wait(timeout=5)
+            assert wait_until_blocked(engine, worker_pid[0])
+            locked.description = "Python"
+            skill_service.reconcile_detected_skills(first, locked, locked.description)
+            first.commit()
+        assert finished.wait(timeout=5)
+        worker.join(timeout=5)
+        assert errors == [] and not worker.is_alive()
+        with Session(engine) as verify:
+            stored = verify.get(Job, job_id)
+            associations = skill_service.list_job_skills(verify, USER_A.id, job_id)
+            assert stored is not None and stored.description == "Kubernetes"
+            assert [(item.skill.name, item.is_detected) for item in associations] == [
+                ("Kubernetes", True)
+            ]
+    finally:
+        with Session(engine) as cleanup:
+            cleanup.execute(delete(Job).where(Job.id == job_id))
+            cleanup.execute(delete(Company).where(Company.id == company_id))
+            cleanup.commit()
+        engine.dispose()
+
+
+def test_manual_add_then_blocked_remove_has_ordered_final_state(
+    migrated_database_url: str,
+) -> None:
+    engine = create_engine(migrated_database_url)
+    started = Event()
+    finished = Event()
+    worker_pid: list[int] = []
+    errors: list[BaseException] = []
+    with Session(engine) as setup:
+        job = add_job(setup, USER_A)
+        setup.commit()
+        job_id, company_id = job.id, job.company_id
+        python_id = seeded_skill(setup, "Python").id
+
+    def remove() -> None:
+        try:
+            with Session(engine) as session:
+                worker_pid.append(session.scalar(select(func.pg_backend_pid())) or 0)
+                started.set()
+                skill_service.remove_job_skill(session, USER_A.id, job_id, python_id)
+        except BaseException as exc:
+            errors.append(exc)
+        finally:
+            finished.set()
+
+    try:
+        with Session(engine) as first:
+            skill_service.require_owned_job_locked(first, USER_A.id, job_id)
+            worker = Thread(target=remove, daemon=True)
+            worker.start()
+            assert started.wait(timeout=5)
+            assert wait_until_blocked(engine, worker_pid[0])
+            python = seeded_skill(first, "Python")
+            first.add(
+                JobSkill(
+                    job_id=job_id,
+                    skill_id=python.id,
+                    user_id=USER_A.id,
+                    is_manual=True,
+                    is_detected=False,
+                )
+            )
+            first.commit()
+        assert finished.wait(timeout=5)
+        worker.join(timeout=5)
+        assert errors == [] and not worker.is_alive()
+        with Session(engine) as verify:
+            assert verify.get(JobSkill, (job_id, python_id)) is None
+            assert verify.get(JobSkillSuppression, (job_id, python_id)) is None
+    finally:
+        with Session(engine) as cleanup:
+            cleanup.execute(delete(Job).where(Job.id == job_id))
+            cleanup.execute(delete(Company).where(Company.id == company_id))
+            cleanup.commit()
         engine.dispose()

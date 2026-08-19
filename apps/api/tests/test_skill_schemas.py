@@ -3,7 +3,13 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from applygauge_api.skills.schemas import SkillAdd, SkillCategory, SkillListResponse, SkillRead
+from applygauge_api.skills.schemas import (
+    SkillAdd,
+    SkillCategory,
+    SkillListResponse,
+    SkillRead,
+    SkillSource,
+)
 
 
 @pytest.mark.parametrize("name", ["PostgreSQL", "Postgres", "C++", "NodeJS"])
@@ -46,6 +52,7 @@ def test_skill_read_exposes_only_canonical_public_fields() -> None:
             "id": skill_id,
             "name": "PostgreSQL",
             "category": "DATABASE",
+            "sources": ["MANUAL", "DETECTED"],
             "normalized_term": "postgresql",
             "user_id": uuid4(),
         }
@@ -54,11 +61,24 @@ def test_skill_read_exposes_only_canonical_public_fields() -> None:
         "id": str(skill_id),
         "name": "PostgreSQL",
         "category": "DATABASE",
+        "sources": ["MANUAL", "DETECTED"],
     }
 
 
 def test_skill_list_response_serializes_focused_items() -> None:
-    skill = SkillRead(id=uuid4(), name="Python", category=SkillCategory.LANGUAGE)
+    skill = SkillRead(
+        id=uuid4(),
+        name="Python",
+        category=SkillCategory.LANGUAGE,
+        sources=[SkillSource.DETECTED],
+    )
     assert SkillListResponse(items=[skill]).model_dump(mode="json") == {
-        "items": [{"id": str(skill.id), "name": "Python", "category": "LANGUAGE"}]
+        "items": [
+            {
+                "id": str(skill.id),
+                "name": "Python",
+                "category": "LANGUAGE",
+                "sources": ["DETECTED"],
+            }
+        ]
     }

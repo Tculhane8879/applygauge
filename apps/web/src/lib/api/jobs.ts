@@ -58,10 +58,13 @@ export type SkillCategory =
   | "TESTING"
   | "OTHER";
 
+export type SkillSource = "MANUAL" | "DETECTED";
+
 export type SkillRead = {
   id: string;
   name: string;
   category: SkillCategory;
+  sources: SkillSource[];
 };
 
 export type SkillListResponse = {

@@ -23,5 +23,6 @@ def test_openapi_exposes_only_nested_job_skill_operations() -> None:
     schemas = document["components"]["schemas"]
     assert schemas["SkillAdd"]["required"] == ["name"]
     assert schemas["SkillAdd"]["additionalProperties"] is False
-    assert set(schemas["SkillRead"]["required"]) == {"id", "name", "category"}
+    assert set(schemas["SkillRead"]["required"]) == {"id", "name", "category", "sources"}
+    assert schemas["SkillSource"]["enum"] == ["MANUAL", "DETECTED"]
     assert set(schemas["SkillListResponse"]["required"]) == {"items"}

@@ -44,6 +44,9 @@ class Skill(Base):
     job_skills: Mapped[list["JobSkill"]] = relationship(
         back_populates="skill", passive_deletes=True
     )
+    suppressions: Mapped[list["JobSkillSuppression"]] = relationship(
+        back_populates="skill", passive_deletes=True
+    )
 
 
 class SkillTerm(Base):
@@ -64,6 +67,7 @@ class SkillTerm(Base):
     term: Mapped[str] = mapped_column(String(100), nullable=False)
     normalized_term: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     is_canonical: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_extractable: Mapped[bool] = mapped_column(Boolean, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -80,6 +84,32 @@ class JobSkill(Base):
             ondelete="CASCADE",
         ),
         Index("ix_job_skills_skill_id", "skill_id"),
+        CheckConstraint("is_manual OR is_detected", name="provenance_required"),
+    )
+
+    job_id: Mapped[UUID] = mapped_column(primary_key=True)
+    skill_id: Mapped[UUID] = mapped_column(
+        ForeignKey("skills.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[UUID] = mapped_column(nullable=False)
+    is_manual: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_detected: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    skill: Mapped[Skill] = relationship(back_populates="job_skills")
+
+
+class JobSkillSuppression(Base):
+    __tablename__ = "job_skill_suppressions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ("job_id", "user_id"),
+            ("jobs.id", "jobs.user_id"),
+            name="fk_job_skill_suppressions_job_id_user_id_jobs",
+            ondelete="CASCADE",
+        ),
+        Index("ix_job_skill_suppressions_skill_id", "skill_id"),
     )
 
     job_id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -90,4 +120,4 @@ class JobSkill(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
-    skill: Mapped[Skill] = relationship(back_populates="job_skills")
+    skill: Mapped[Skill] = relationship(back_populates="suppressions")

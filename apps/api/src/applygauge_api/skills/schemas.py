@@ -17,6 +17,11 @@ class SkillCategory(StrEnum):
     OTHER = "OTHER"
 
 
+class SkillSource(StrEnum):
+    MANUAL = "MANUAL"
+    DETECTED = "DETECTED"
+
+
 class SkillAdd(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -36,6 +41,7 @@ class SkillRead(BaseModel):
     id: UUID
     name: str
     category: SkillCategory
+    sources: list[SkillSource]
 
 
 class SkillListResponse(BaseModel):

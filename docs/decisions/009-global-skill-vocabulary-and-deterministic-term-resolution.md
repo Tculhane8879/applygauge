@@ -68,6 +68,8 @@ catalog endpoint or ordinary-user catalog mutation path.
 Milestone 4A adds no source field, `MANUAL`/`DETECTED` provenance, confidence, or extraction state.
 Milestone 4B will design provenance, correction, description-update, re-extraction, and
 false-positive semantics together. This ADR does not decide those mechanics.
+Those deferred mechanics are subsequently decided in
+[ADR 010](010-deterministic-skill-extraction-and-manual-correction.md).
 
 ## Alternatives Considered
 

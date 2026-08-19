@@ -80,7 +80,26 @@ describe("jobs API", () => {
   it("gets authenticated skills from the encoded job endpoint", async () => {
     const tokenProvider = vi.fn();
     const response = {
-      items: [{ id: "skill-id", name: "C++", category: "LANGUAGE" }],
+      items: [
+        {
+          id: "manual",
+          name: "C++",
+          category: "LANGUAGE",
+          sources: ["MANUAL"],
+        },
+        {
+          id: "detected",
+          name: "Python",
+          category: "LANGUAGE",
+          sources: ["DETECTED"],
+        },
+        {
+          id: "dual",
+          name: "PostgreSQL",
+          category: "DATABASE",
+          sources: ["MANUAL", "DETECTED"],
+        },
+      ],
     };
     mocks.authenticatedApiFetch.mockResolvedValue(response);
 
@@ -103,6 +122,7 @@ describe("jobs API", () => {
       id: "skill-id",
       name: "PostgreSQL",
       category: "DATABASE",
+      sources: ["MANUAL", "DETECTED"],
     };
     mocks.authenticatedApiFetch.mockResolvedValueOnce(response);
     await expect(

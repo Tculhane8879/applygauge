@@ -8,7 +8,14 @@ from applygauge_api.auth.dependencies import get_current_user
 from applygauge_api.auth.models import AuthenticatedUser
 from applygauge_api.db.session import get_db_session
 from applygauge_api.jobs.service import JobNotFoundError
-from applygauge_api.skills.schemas import SkillAdd, SkillListResponse, SkillRead
+from applygauge_api.skills.models import JobSkill
+from applygauge_api.skills.schemas import (
+    SkillAdd,
+    SkillCategory,
+    SkillListResponse,
+    SkillRead,
+    SkillSource,
+)
 from applygauge_api.skills.service import (
     SkillNotAvailableError,
     add_job_skill,
@@ -17,6 +24,20 @@ from applygauge_api.skills.service import (
 )
 
 router = APIRouter(prefix="/jobs/{job_id}/skills", tags=["job skills"])
+
+
+def _skill_read(association: JobSkill) -> SkillRead:
+    sources: list[SkillSource] = []
+    if association.is_manual:
+        sources.append(SkillSource.MANUAL)
+    if association.is_detected:
+        sources.append(SkillSource.DETECTED)
+    return SkillRead(
+        id=association.skill.id,
+        name=association.skill.name,
+        category=SkillCategory(association.skill.category),
+        sources=sources,
+    )
 
 
 def _job_not_found(exc: JobNotFoundError) -> HTTPException:
@@ -39,8 +60,8 @@ def get_job_skills(
     try:
         return SkillListResponse(
             items=[
-                SkillRead.model_validate(skill)
-                for skill in list_job_skills(session, current_user.id, job_id)
+                _skill_read(association)
+                for association in list_job_skills(session, current_user.id, job_id)
             ]
         )
     except JobNotFoundError as exc:
@@ -74,7 +95,7 @@ def post_job_skill(
             detail="That skill is not available in the catalog.",
         ) from exc
     response.status_code = status.HTTP_201_CREATED if result.created else status.HTTP_200_OK
-    return SkillRead.model_validate(result.skill)
+    return _skill_read(result.association)
 
 
 @router.delete(
