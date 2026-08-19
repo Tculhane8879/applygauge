@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api";
 import { initialJobActionState } from "@/lib/jobs/form";
 
 const mocks = vi.hoisted(() => ({
+  addJobSkill: vi.fn(),
   createJob: vi.fn(),
   deleteJob: vi.fn(),
   getJob: vi.fn(),
@@ -14,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn((path: string) => {
     throw new Error(`REDIRECT:${path}`);
   }),
+  removeJobSkill: vi.fn(),
 }));
 vi.mock("@/lib/api/jobs", () => ({
   APPLICATION_STATUSES: [
@@ -25,9 +27,11 @@ vi.mock("@/lib/api/jobs", () => ({
     "REJECTED",
     "WITHDRAWN",
   ],
+  addJobSkill: mocks.addJobSkill,
   createJob: mocks.createJob,
   deleteJob: mocks.deleteJob,
   getJob: mocks.getJob,
+  removeJobSkill: mocks.removeJobSkill,
   updateJob: mocks.updateJob,
   updateJobStatus: mocks.updateJobStatus,
 }));
@@ -38,8 +42,10 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
 import {
+  addJobSkillAction,
   createJobAction,
   deleteJobAction,
+  removeJobSkillAction,
   updateJobAction,
   updateJobStatusAction,
 } from "./actions";
@@ -195,4 +201,78 @@ describe("job Server Actions", () => {
       formError: "We couldn't update this status. Please try again.",
     });
   });
+
+  it("adds a skill and revalidates only the detail route", async () => {
+    await expect(addJobSkillAction("job-id", "postgres")).resolves.toEqual({
+      success: true,
+    });
+    expect(mocks.addJobSkill).toHaveBeenCalledWith(
+      "job-id",
+      "postgres",
+      expect.any(Function),
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/jobs/job-id");
+    expect(mocks.revalidatePath).not.toHaveBeenCalledWith("/jobs");
+  });
+
+  it.each(["", " ", "a".repeat(101), "bad\u0000name"])(
+    "rejects invalid skill input without calling the API: %j",
+    async (name) => {
+      await expect(addJobSkillAction("job-id", name)).resolves.toEqual({
+        success: false,
+        formError: "Enter a valid skill name.",
+      });
+      expect(mocks.addJobSkill).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    [422, "That skill isn't available in the catalog yet."],
+    [404, "This job is no longer available."],
+  ])("maps API %s to a safe add-skill error", async (status, formError) => {
+    mocks.addJobSkill.mockRejectedValueOnce(new ApiError(status));
+    await expect(addJobSkillAction("job-id", "Python")).resolves.toEqual({
+      success: false,
+      formError,
+    });
+  });
+
+  it("removes a skill and revalidates only the detail route", async () => {
+    await expect(removeJobSkillAction("job-id", "skill-id")).resolves.toEqual({
+      success: true,
+    });
+    expect(mocks.removeJobSkill).toHaveBeenCalledWith(
+      "job-id",
+      "skill-id",
+      expect.any(Function),
+    );
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/jobs/job-id");
+    expect(mocks.revalidatePath).not.toHaveBeenCalledWith("/jobs");
+  });
+
+  it("maps remove 404 without exposing ownership", async () => {
+    mocks.removeJobSkill.mockRejectedValueOnce(new ApiError(404));
+    await expect(removeJobSkillAction("job-id", "skill-id")).resolves.toEqual({
+      success: false,
+      formError: "This job is no longer available.",
+    });
+  });
+
+  it.each([
+    ["add", mocks.addJobSkill, () => addJobSkillAction("job-id", "Python")],
+    [
+      "remove",
+      mocks.removeJobSkill,
+      () => removeJobSkillAction("job-id", "skill-id"),
+    ],
+  ])(
+    "maps unexpected %s failures without leaking details",
+    async (_kind, mutation, action) => {
+      mutation.mockRejectedValueOnce(new Error("sensitive detail"));
+      await expect(action()).resolves.toEqual({
+        success: false,
+        formError: "We couldn't update these skills. Please try again.",
+      });
+    },
+  );
 });

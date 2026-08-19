@@ -41,6 +41,9 @@ describe("JobList", () => {
     expect(
       screen.queryByRole("combobox", { name: /status/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Skills" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute(
       "href",
       "/jobs/11111111-1111-4111-8111-111111111111",

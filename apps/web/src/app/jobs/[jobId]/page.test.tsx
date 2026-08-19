@@ -6,6 +6,7 @@ import { type JobRead } from "@/lib/api/jobs";
 
 const mocks = vi.hoisted(() => ({
   getJob: vi.fn(),
+  getJobSkills: vi.fn(),
   getStatusEvents: vi.fn(),
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/api/jobs", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/api/jobs")>()),
   getJob: mocks.getJob,
+  getJobSkills: mocks.getJobSkills,
   getStatusEvents: mocks.getStatusEvents,
 }));
 vi.mock("@/lib/api/server", () => ({
@@ -59,6 +61,7 @@ describe("JobDetailPage", () => {
         },
       ],
     });
+    mocks.getJobSkills.mockResolvedValue({ items: [] });
   });
 
   it("renders an authenticated job detail", async () => {
@@ -76,6 +79,11 @@ describe("JobDetailPage", () => {
       job.id,
       expect.any(Function),
     );
+    expect(mocks.getJobSkills).toHaveBeenCalledWith(
+      job.id,
+      expect.any(Function),
+    );
+    expect(screen.getByText("No skills added yet.")).toBeInTheDocument();
   });
 
   it("maps an API 404 to the privacy-preserving not-found path", async () => {
@@ -123,5 +131,45 @@ describe("JobDetailPage", () => {
     expect(
       screen.getByText("Status history is unavailable."),
     ).toBeInTheDocument();
+  });
+
+  it("renders canonical skills returned by the authenticated API", async () => {
+    mocks.getJob.mockResolvedValue(job);
+    mocks.getJobSkills.mockResolvedValue({
+      items: [
+        { id: "cpp", name: "C++", category: "LANGUAGE" },
+        { id: "postgres", name: "PostgreSQL", category: "DATABASE" },
+      ],
+    });
+
+    render(await JobDetailPage({ params: Promise.resolve({ jobId: job.id }) }));
+
+    expect(screen.getByText("C++")).toBeInTheDocument();
+    expect(screen.getByText("PostgreSQL")).toBeInTheDocument();
+  });
+
+  it("maps a skills 404 to the same privacy-preserving not-found path", async () => {
+    mocks.getJob.mockResolvedValue(job);
+    mocks.getJobSkills.mockRejectedValue(new ApiError(404));
+
+    await expect(
+      JobDetailPage({ params: Promise.resolve({ jobId: job.id }) }),
+    ).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mocks.notFound).toHaveBeenCalledOnce();
+  });
+
+  it("keeps job detail available when skills have an unexpected failure", async () => {
+    mocks.getJob.mockResolvedValue(job);
+    mocks.getJobSkills.mockRejectedValue(new ApiError(503));
+
+    render(await JobDetailPage({ params: Promise.resolve({ jobId: job.id }) }));
+
+    expect(
+      screen.getByRole("heading", { name: job.title }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Skills are unavailable right now.",
+    );
+    expect(screen.getAllByText("Saved").length).toBeGreaterThan(0);
   });
 });

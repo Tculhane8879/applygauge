@@ -122,5 +122,10 @@ Mutations run through Server Actions that call this FastAPI API; the frontend do
 Supabase database APIs. The frontend shows current status on job lists and details, renders
 immutable history, and changes status through an authenticated Server Action that calls the
 dedicated transition endpoint. History remains server-authoritative and refreshes from FastAPI
-after a successful transition. Notes, skills, search, filtering, and analytics belong to later
-increments or milestones.
+after a successful transition. Job detail also lists and manually manages canonical skills through
+the separate API below. Notes, deterministic extraction, search, filtering, and analytics belong
+to later increments or milestones.
+
+Authenticated manual job-skill endpoints are documented separately in the
+[Job Skills API](skills.md). The job list and create/edit metadata forms intentionally remain
+skill-free; associations are managed separately on job detail.

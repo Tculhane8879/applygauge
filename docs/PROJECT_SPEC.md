@@ -2195,20 +2195,36 @@ Terminal outcomes such as REJECTED/WITHDRAWN also work.
 
 ---
 
-## MILESTONE 4 — SKILLS ENGINE
+## MILESTONE 4A — CANONICAL SKILLS AND MANUAL ASSOCIATIONS
 
 Deliver:
 
-- canonical skill catalog;
-- aliases;
+- global canonical skill catalog;
+- deterministic normalized-term and alias resolution;
 - seed mechanism;
+- private user/job skill associations;
+- manual authenticated association and removal;
+- canonical skill display;
+- ownership, normalization, persistence, API, and frontend tests.
+
+Acceptance criteria:
+
+An authenticated user can associate curated canonical skills with an owned job, resolve explicit
+aliases deterministically, view those canonical skills, and remove associations without exposing
+another user's job data.
+
+---
+
+## MILESTONE 4B — DETERMINISTIC SKILL EXTRACTION
+
+Deliver:
+
 - deterministic extractor;
 - automatic extraction on job creation;
+- MANUAL/DETECTED association provenance;
 - automatic handling on description update according to clearly defined behavior;
-- detected skill display;
-- manual skill association;
-- removal;
-- source tracking;
+- preservation of manual corrections and false-positive removals;
+- detected skill display and correction behavior;
 - extraction tests.
 
 Important design question to resolve before implementation:
@@ -2238,6 +2254,8 @@ the appropriate canonical skills are produced reliably.
 Aliases and case variations work.
 
 False-positive cases are tested.
+
+Milestone 5 analytics must not begin until Milestone 4B is complete.
 
 ---
 

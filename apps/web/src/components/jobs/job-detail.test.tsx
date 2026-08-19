@@ -25,9 +25,12 @@ describe("JobDetail", () => {
   it("renders job data with readable labels and a safe external link", () => {
     render(
       <JobDetail
+        addSkillAction={vi.fn()}
         deleteAction={async () => ({ success: false })}
         history={[]}
         job={job}
+        removeSkillAction={vi.fn()}
+        skills={[]}
         statusAction={vi.fn()}
       />,
     );
@@ -55,9 +58,12 @@ describe("JobDetail", () => {
   it("handles all nullable display fields without broken output", () => {
     render(
       <JobDetail
+        addSkillAction={vi.fn()}
         deleteAction={async () => ({ success: false })}
         history={[]}
         job={{ ...job, job_url: null, location: null, description: null }}
+        removeSkillAction={vi.fn()}
+        skills={[]}
         statusAction={vi.fn()}
       />,
     );
