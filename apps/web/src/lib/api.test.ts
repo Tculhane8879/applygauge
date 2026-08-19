@@ -56,4 +56,17 @@ describe("baseApiFetch", () => {
     ).rejects.toEqual(new ApiError(404));
     expect(fetchImplementation.mock.results[0]?.value).toBeDefined();
   });
+
+  it("represents an unauthorized response without exposing its body", async () => {
+    const fetchImplementation = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      text: async () => "expired token details",
+    });
+
+    await expect(
+      baseApiFetch("/api/v1/jobs", undefined, fetchImplementation),
+    ).rejects.toEqual(new ApiError(401));
+    expect(fetchImplementation.mock.results[0]?.value).toBeDefined();
+  });
 });

@@ -33,19 +33,19 @@ export function MetricCards({ overview }: { overview: AnalyticsOverviewRead }) {
       <h2 className="sr-only" id="summary-heading">
         Job search summary
       </h2>
-      <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <dl className="grid overflow-hidden rounded-xl border border-indigo-100 bg-analytics-tint sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
           <div
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+            className="border-t border-indigo-200/70 p-5 first:border-t-0 sm:border-l sm:first:border-l-0 sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(3)]:border-l-0 lg:border-t-0 lg:[&:nth-child(3)]:border-l"
             key={metric.label}
           >
-            <dt className="text-sm font-semibold text-slate-600">
+            <dt className="text-sm font-semibold text-frame/75">
               {metric.label}
             </dt>
-            <dd className="mt-2 text-2xl font-bold text-slate-950">
+            <dd className="mt-2 text-3xl font-bold tracking-tight text-frame tabular-nums">
               {metric.value}
             </dd>
-            <p className="mt-2 text-sm text-slate-500">{metric.support}</p>
+            <p className="mt-2 text-sm text-frame/65">{metric.support}</p>
           </div>
         ))}
       </dl>

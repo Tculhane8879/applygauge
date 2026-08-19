@@ -4,6 +4,7 @@ import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { type SkillActionState } from "@/app/jobs/actions";
+import { Button } from "@/components/ui/button";
 
 export function RemoveJobSkillButton({
   action,
@@ -18,10 +19,9 @@ export function RemoveJobSkillButton({
   const [pending, startTransition] = useTransition();
 
   return (
-    <div>
-      <button
+    <div className="min-w-0">
+      <Button
         aria-describedby={error ? errorId : undefined}
-        className="text-sm font-semibold text-red-700 hover:underline disabled:cursor-wait disabled:opacity-60"
         disabled={pending}
         onClick={() => {
           if (pending) return;
@@ -35,12 +35,17 @@ export function RemoveJobSkillButton({
             router.refresh();
           });
         }}
-        type="button"
+        size="compact"
+        variant="destructive-subtle"
       >
         {pending ? `Removing ${skillName}…` : `Remove ${skillName}`}
-      </button>
+      </Button>
       {error ? (
-        <p className="mt-1 text-sm text-red-700" id={errorId} role="alert">
+        <p
+          className="mt-1 break-words text-sm text-red-700"
+          id={errorId}
+          role="alert"
+        >
           {error}
         </p>
       ) : null}

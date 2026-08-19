@@ -7,27 +7,24 @@ import { formatJobDate } from "@/lib/jobs/presentation";
 export function RecentJobs({ jobs }: { jobs: RecentJobRead[] }) {
   return (
     <section aria-labelledby="recent-jobs-heading">
-      <h2 className="mb-4 text-xl font-bold" id="recent-jobs-heading">
+      <h2 className="mb-4 text-xl font-bold text-ink" id="recent-jobs-heading">
         Recent opportunities
       </h2>
-      <ul className="space-y-3">
+      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
         {jobs.map((job) => (
-          <li
-            className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-            key={job.id}
-          >
+          <li className="p-4" key={job.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <Link
-                  className="font-semibold text-blue-800 hover:underline"
+                  className="focus-ring break-words rounded-sm font-semibold text-ink hover:text-brand hover:underline"
                   href={`/jobs/${encodeURIComponent(job.id)}`}
                 >
                   {job.title}
                 </Link>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 break-words text-sm text-muted">
                   {job.company_name}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-muted">
                   Tracked {formatJobDate(job.created_at)}
                 </p>
               </div>

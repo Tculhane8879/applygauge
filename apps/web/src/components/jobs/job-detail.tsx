@@ -40,29 +40,25 @@ export function JobDetail({
 }) {
   return (
     <article>
-      <p className="font-semibold text-blue-700">{job.company.name}</p>
-      <h2 className="mt-2 text-3xl font-bold text-slate-950">{job.title}</h2>
-      <div className="mt-4">
-        <JobStatusBadge status={job.current_status} />
-      </div>
-      <div className="mt-5 max-w-sm">
-        <JobStatusControl
-          action={statusAction}
-          currentStatus={job.current_status}
-          key={job.current_status}
-        />
-      </div>
-      <div className="mt-5 flex items-start gap-5">
-        <Link
-          className="font-semibold text-blue-700 hover:underline"
-          href={`/jobs/${job.id}/edit`}
-        >
-          Edit
-        </Link>
-        <DeleteJobButton action={deleteAction} />
-      </div>
+      <header>
+        <p className="break-words font-semibold text-brand">
+          {job.company.name}
+        </p>
+        <h2 className="mt-2 max-w-3xl break-words text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+          {job.title}
+        </h2>
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <JobStatusBadge status={job.current_status} />
+          <Link
+            className="focus-ring inline-flex min-h-9 items-center rounded-md px-3 text-sm font-semibold text-brand hover:bg-indigo-50 hover:text-brand-hover"
+            href={`/jobs/${job.id}/edit`}
+          >
+            Edit
+          </Link>
+        </div>
+      </header>
 
-      <dl className="mt-8 grid gap-5 rounded-xl border border-slate-200 bg-white p-6 sm:grid-cols-2">
+      <dl className="mt-7 grid gap-x-8 gap-y-5 border-y border-line py-6 sm:grid-cols-2 lg:grid-cols-3">
         {job.location ? (
           <DetailItem label="Location" value={job.location} />
         ) : null}
@@ -80,13 +76,11 @@ export function JobDetail({
           value={formatJobDateTime(job.updated_at)}
         />
         {job.job_url ? (
-          <div>
-            <dt className="text-sm font-medium text-slate-500">
-              Original posting
-            </dt>
-            <dd className="mt-1">
+          <div className="min-w-0">
+            <dt className="text-sm font-medium text-muted">Original posting</dt>
+            <dd className="mt-1 break-words">
               <a
-                className="font-medium text-blue-700 hover:underline"
+                className="focus-ring rounded-sm font-semibold text-brand hover:text-brand-hover hover:underline"
                 href={job.job_url}
                 rel="noopener noreferrer"
                 target="_blank"
@@ -98,19 +92,23 @@ export function JobDetail({
         ) : null}
       </dl>
 
-      <section className="mt-8" aria-labelledby="description-heading">
-        <h3 className="text-xl font-semibold" id="description-heading">
-          Description
+      <section className="mt-8" aria-labelledby="application-status-heading">
+        <h3
+          className="text-xl font-semibold text-ink"
+          id="application-status-heading"
+        >
+          Application status
         </h3>
-        {job.description ? (
-          <p className="mt-3 whitespace-pre-wrap leading-7 text-slate-700">
-            {job.description}
-          </p>
-        ) : (
-          <p className="mt-3 text-slate-600">
-            No description was saved for this job.
-          </p>
-        )}
+        <p className="mt-1 text-sm text-muted">
+          Update the current stage while preserving its history.
+        </p>
+        <div className="mt-4 max-w-xl">
+          <JobStatusControl
+            action={statusAction}
+            currentStatus={job.current_status}
+            key={job.current_status}
+          />
+        </div>
       </section>
 
       <JobSkills
@@ -118,16 +116,54 @@ export function JobDetail({
         removeAction={removeSkillAction}
         skills={skills}
       />
+
+      <section
+        className="mt-10 border-t border-line pt-8"
+        aria-labelledby="description-heading"
+      >
+        <h3 className="text-xl font-semibold text-ink" id="description-heading">
+          Description
+        </h3>
+        {job.description ? (
+          <p className="mt-3 max-w-3xl break-words whitespace-pre-wrap leading-7 text-ink/80">
+            {job.description}
+          </p>
+        ) : (
+          <p className="mt-3 text-muted">
+            No description was saved for this job.
+          </p>
+        )}
+      </section>
+
       <StatusHistory events={history} />
+
+      <section
+        className="mt-10 border-t border-line pt-8"
+        aria-labelledby="delete-opportunity-heading"
+      >
+        <h3
+          className="text-base font-semibold text-ink"
+          id="delete-opportunity-heading"
+        >
+          Delete this opportunity
+        </h3>
+        <p className="mt-1 max-w-xl text-sm text-muted">
+          Permanently removes this opportunity and its associated history and
+          skills.
+        </p>
+        <div className="mt-3">
+          <DeleteJobButton action={deleteAction} />
+        </div>
+      </section>
     </article>
   );
 }
 
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-sm font-medium text-slate-500">{label}</dt>
-      <dd className="mt-1 text-slate-800">{value}</dd>
+    <div className="min-w-0">
+      <dt className="text-sm font-medium text-muted">{label}</dt>
+      <dd className="mt-1 break-words text-ink">{value}</dd>
     </div>
   );
 }

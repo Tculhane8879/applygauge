@@ -1,6 +1,6 @@
 # Analytics API
 
-Milestone 5 exposes authenticated, read-only current-snapshot analytics. Every query is scoped
+ApplyGauge exposes authenticated, read-only current-snapshot analytics. Every query is scoped
 through the authenticated user's jobs; clients cannot provide a user ID or analytics filter.
 Both endpoints require a Supabase bearer token. They expose no mutation methods, ownership IDs,
 provenance flags, suppression state, status history, or aggregate implementation fields.

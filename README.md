@@ -1,128 +1,136 @@
 # ApplyGauge
 
-ApplyGauge is a personal job-search intelligence platform for tracking software-engineering
-opportunities and learning which technical skills appear most often across the jobs a user is
-targeting.
+ApplyGauge is a full-stack job-search intelligence workspace for tracking opportunities,
+application progress, and technology demand across a user's saved jobs.
 
-The project exists both to solve a real job-search problem and to demonstrate a thoughtfully
-designed, tested, and documented full-stack system built with React, Next.js, TypeScript, Python,
-FastAPI, and PostgreSQL.
+The v1 implementation is complete and is undergoing final release verification.
 
-## Project status
+## Why ApplyGauge
 
-ApplyGauge has completed Milestones 0–4B. **Milestone 5: Analytics** is implementation-complete and
-pending developer manual acceptance. Authentication, job management, the application pipeline,
-deterministic skill extraction and correction, current-snapshot analytics, Dashboard metrics, and
-the complete Insights skill-demand ranking are implemented.
+Job seekers collect opportunities across many job boards, bookmarks, and documents. As that list
+grows, it becomes difficult to understand both application progress and which technologies appear
+consistently across target roles. ApplyGauge keeps those decisions in one private workspace and
+turns saved job descriptions into explainable, current-snapshot insights.
 
-Implemented today:
+## Screenshots
 
-- npm-workspace and uv-managed monorepo foundations;
-- a minimal Next.js application;
-- a minimal FastAPI application;
-- PostgreSQL local infrastructure through Docker Compose;
-- API liveness and database-readiness endpoints;
-- frontend-to-backend connectivity indication;
-- baseline frontend and backend tests;
-- formatting, linting, strict typing, builds, and continuous integration;
-- a reproducible local Supabase Auth stack with ES256/JWKS and email capture;
-- FastAPI bearer-token validation and `GET /api/v1/auth/me`;
-- Next.js SSR signup, confirmation, login, protected dashboard, and sign-out.
-- PostgreSQL-backed, ownership-scoped company resolution and job CRUD through FastAPI;
-- authenticated Saved Jobs list, detail, create, edit, and delete flows in Next.js.
-- checked current-status snapshots and immutable application-status history;
-- atomic, row-locked status transitions with ownership protection;
-- frontend status badges, chronological history, and authenticated status changes.
-- a curated global canonical skill catalog with deterministic aliases;
-- ownership-protected backend job-skill list/add/remove APIs;
-- canonical skill display, empty/error states, and authenticated add/remove controls on job detail.
-- explicit migration-backed extraction eligibility for reviewed canonical terms and aliases;
-- synchronous deterministic extraction during job creation and changed-description updates;
-- atomic manual/detected provenance reconciliation with durable false-positive correction;
-- accessible `Manual`, `Detected`, and `Manual + detected` labels on job detail.
-- authenticated current-snapshot summary and skill-demand aggregates computed by FastAPI;
-- Dashboard totals, applied/interview metrics, current-state response rate, top-five skills, and
-  recently tracked opportunities;
-- a complete deterministic `/insights` ranking with backend-computed one-decimal percentages;
-- distinct responsive loading, empty, no-skill, and safe analytics-error states.
+![ApplyGauge Dashboard](docs/screenshots/dashboard.png)
 
-The remaining v1 product features described below are planned, not yet implemented.
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/jobs.png" alt="ApplyGauge saved jobs" /></td>
+    <td width="50%"><img src="docs/screenshots/insights.png" alt="ApplyGauge skill insights" /></td>
+  </tr>
+</table>
 
-## Planned v1 scope
+![ApplyGauge Job Detail](docs/screenshots/job-detail.png)
 
-Version 1 lets independent users authenticate, save job opportunities, track application status
-history, correct deterministic known-skill detection, and view explainable aggregate job-search
-insights. Notes plus job search/filtering remain planned v1 work.
+## Features
 
-Browser capture, resume intelligence, semantic/vector retrieval, background workers, and applied AI
-belong to later versions and are intentionally excluded from v1 and the current milestone.
+- **Opportunity tracking:** create, inspect, edit, and delete private job opportunities with
+  resolved company records and useful role metadata.
+- **Application progress:** maintain a checked current status alongside immutable, chronological
+  status events with concurrency-safe transitions.
+- **Skill intelligence:** resolve a curated canonical vocabulary and aliases, add skills manually,
+  and extract reviewed terms deterministically from job descriptions.
+- **Explainable correction:** retain independent manual/detected provenance and durable
+  false-positive suppression without probabilistic or opaque processing.
+- **Current-snapshot analytics:** view opportunity totals, application metrics, response rate,
+  recent jobs, top-five Dashboard skills, and the complete deterministic Insights ranking.
+- **Private, polished workspace:** Supabase email/password authentication, strict per-user isolation,
+  responsive layouts, keyboard focus, and distinct loading, empty, error, and not-found states.
 
 ## Architecture
 
 ```text
+Browser
+  |-- Supabase Auth (identity and cookie-backed sessions)
+  |
+  v
 Next.js / React / TypeScript
-             |
-             v
-       FastAPI / Python
-             |
-             v
-          PostgreSQL
+  |
+  | authenticated HTTP/JSON
+  v
+FastAPI / Python
+  |
+  | SQLAlchemy
+  v
+ApplyGauge PostgreSQL
 ```
 
-Next.js owns presentation and browser interaction. FastAPI is the application API and future
-business-logic boundary. PostgreSQL is the portable relational persistence layer. Normal domain
-operations must flow through FastAPI rather than bypassing it through generated database APIs.
+Next.js owns presentation and browser interaction. FastAPI owns validation, authorization,
+business rules, analytics semantics, and all domain persistence. PostgreSQL owns relational
+application data. Supabase provides identity only: normal domain operations never bypass FastAPI
+or use Supabase-generated database APIs.
 
-The primary development loop runs Next.js and FastAPI directly on the host while PostgreSQL runs in
-Docker. See the [architecture overview](docs/architecture/overview.md) for the full boundary and
-deployment discussion.
+The backend is a modular monolith. The primary development loop runs Next.js and FastAPI locally,
+the ApplyGauge database through Docker Compose, and a separate local Supabase stack for Auth. See
+the [architecture overview](docs/architecture/overview.md).
+
+## Technical highlights
+
+- Token-derived ownership on every protected backend query, with cross-user integration coverage.
+- Composite same-owner foreign keys that reinforce application authorization at the database
+  boundary.
+- Transactional immutable status history and `SELECT FOR UPDATE` serialization for concurrent
+  transitions.
+- A global canonical skill vocabulary with one deterministic exact-term namespace.
+- Synchronous deterministic extraction using explicitly reviewed terms and punctuation-aware
+  matching.
+- Independent manual/detected provenance plus durable per-job false-positive correction.
+- Backend-defined analytics with deterministic counts, percentages, ranking, and current-snapshot
+  response-rate semantics.
+- Real PostgreSQL integration and concurrency tests, Alembic migration/drift checks, strict typing,
+  linting, component tests, and production builds in CI.
 
 ## Technology stack
 
-- Frontend: Next.js, React, TypeScript, Tailwind CSS
-- Backend: Python, FastAPI, Pydantic, SQLAlchemy, Alembic
-- Database: PostgreSQL
-- Frontend quality: Prettier, ESLint, Vitest, React Testing Library
-- Backend quality: Ruff, mypy, Pytest
-- Tooling: npm workspaces, uv, Docker Compose, GitHub Actions
-- Identity: Supabase Auth with FastAPI-side ES256/JWKS validation
+| Area | Technology |
+| --- | --- |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS |
+| Backend | Python 3.13, FastAPI, Pydantic, SQLAlchemy, Alembic |
+| Data and identity | PostgreSQL 17, Supabase Auth, ES256/JWKS |
+| Frontend quality | Vitest, React Testing Library, ESLint, Prettier, TypeScript |
+| Backend quality | Pytest, Ruff, mypy, real PostgreSQL integration tests |
+| Tooling | npm workspaces, uv, Docker Compose, GitHub Actions |
 
 ## Repository structure
 
 ```text
 applygauge/
-|-- .github/workflows/ci.yml
+|-- .github/workflows/       # Continuous integration
 |-- apps/
-|   |-- api/                 # FastAPI package, tests, and Alembic environment
+|   |-- api/                 # FastAPI source, tests, and Alembic environment
 |   `-- web/                 # Next.js application and frontend tests
 |-- docs/
-|   |-- api/                 # Current API documentation
-|   |-- architecture/        # Architecture overview
-|   |-- decisions/           # Architecture Decision Records
-|   `-- PROJECT_SPEC.md      # Authoritative project specification
-|-- .env.example             # Local PostgreSQL Compose configuration
-|-- docker-compose.yml       # Local PostgreSQL service
+|   |-- api/                 # Current HTTP API behavior
+|   |-- architecture/        # System overview
+|   |-- authentication/      # Local Supabase development
+|   |-- decisions/           # ADRs 001-011
+|   |-- testing/             # Manual acceptance and release checklists
+|   `-- PROJECT_SPEC.md      # Authoritative product specification
+|-- supabase/                # Local Auth configuration and email template
+|-- docker-compose.yml       # ApplyGauge PostgreSQL only
 |-- package.json             # Root npm workspace commands
-`-- package-lock.json        # Single Node dependency lockfile
+`-- package-lock.json        # Single Node lockfile
 ```
 
-There is no shared package until genuinely shared code exists. Milestone 2 introduced the first
-product database models and Alembic migration for user-owned companies and jobs.
+## Local development
 
-## Prerequisites
+### Prerequisites
 
 - Git
-- Node.js 20.19 or newer
-- npm 10 or newer
+- Node.js 20.19 or newer and npm 10 or newer
 - Python 3.13
 - [uv](https://docs.astral.sh/uv/)
-- Docker Desktop or another Docker Engine with Compose support
+- Docker Desktop or another Docker Engine with Compose
 
-All required tools and dependencies are free to use locally.
+All required development tooling is free. Supabase CLI 2.114.0 is locked through the root npm
+lockfile.
 
-## Local setup
+### 1. Install locked dependencies
 
-Clone the repository and enter it, then install locked dependencies:
+From the repository root:
 
 ```bash
 npm ci
@@ -131,7 +139,7 @@ uv sync --frozen
 cd ../..
 ```
 
-Create local environment files from the committed examples.
+### 2. Create local environment files
 
 PowerShell:
 
@@ -149,92 +157,127 @@ cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
 
-The checked-in values are local-development defaults, not production secrets. Do not commit the
-copied files.
+These copies are ignored. Root `.env` configures the ApplyGauge PostgreSQL container;
+`apps/api/.env` contains private backend settings; and `apps/web/.env.local` contains public browser
+configuration. Never place private keys or service-role credentials in a `NEXT_PUBLIC_` variable.
 
-### 1. Start PostgreSQL
+### 3. Initialize the local Supabase signing key once
 
-From the repository root:
+The private `supabase/signing_keys.json` file is ignored. Supabase CLI 2.114.0 requires an empty
+array before generating the first ES256 key.
+
+PowerShell:
+
+```powershell
+Set-Content -Path supabase/signing_keys.json -Value '[]' -NoNewline
+npx --no-install supabase gen signing-key --algorithm ES256 --workdir . --yes
+git check-ignore supabase/signing_keys.json
+```
+
+macOS/Linux:
+
+```bash
+printf '[]' > supabase/signing_keys.json
+npx --no-install supabase gen signing-key --algorithm ES256 --workdir . --yes
+git check-ignore supabase/signing_keys.json
+```
+
+Do not print or commit this file. The compatibility details and Windows port map are documented in
+the [local authentication guide](docs/authentication/local-development.md).
+
+### 4. Start the ApplyGauge application database
 
 ```bash
 docker compose up -d postgres
 docker compose ps
+docker compose exec -T postgres pg_isready -U applygauge -d applygauge
 ```
 
-The container is ready when its status is `healthy`. To inspect logs:
+This database listens on `localhost:5432` and stores ApplyGauge domain data.
+
+### 5. Apply application migrations
+
+From `apps/api`:
 
 ```bash
-docker compose logs postgres
+uv run alembic upgrade head
+uv run alembic current
+uv run alembic check
 ```
 
-### 2. Start FastAPI
+The current v1 head is `20260818_0004`. Migrations must run before starting normal application use.
 
-For authentication development, initialize the ignored local signing key once and start Supabase.
-The [local authentication guide](docs/authentication/local-development.md) documents the CLI 2.114.0
-compatibility step and Windows port map.
+### 6. Start local Supabase Auth
+
+From the repository root:
 
 ```bash
 npx --no-install supabase start --workdir .
+npx --no-install supabase status --workdir .
 ```
 
-In a second terminal:
+Supabase uses its own Auth database on `localhost:54532`; it does not contain ApplyGauge domain
+data. Copy the displayed public/publishable key into
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in `apps/web/.env.local`. Never copy a service-role or secret
+key into frontend configuration.
+
+The Auth gateway is `http://127.0.0.1:55021`, email capture is
+`http://127.0.0.1:55124`, and Analytics and Studio are intentionally disabled.
+
+### 7. Start FastAPI
+
+From `apps/api` in its own terminal:
 
 ```bash
-cd apps/api
 uv run uvicorn applygauge_api.main:app --reload
 ```
 
-FastAPI runs at `http://localhost:8000`. Interactive OpenAPI documentation is available at
+FastAPI runs at `http://localhost:8000`; OpenAPI is available at
 `http://localhost:8000/docs`.
 
-### 3. Start Next.js
+### 8. Start Next.js
 
-In a third terminal from the repository root:
+From the repository root in another terminal:
 
 ```bash
 npm run dev:web
 ```
 
-The frontend runs at `http://localhost:3000` and displays its connection state to FastAPI.
+Open `http://localhost:3000`.
 
-## Environment variables
-
-| File                  | Visibility                     | Variables                                                                                      |
-| --------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `.env`                | Docker Compose/local only      | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_PORT`                           |
-| `apps/api/.env`       | Private backend                | `APP_ENV`, `DATABASE_URL`, `CORS_ORIGINS`, `SUPABASE_URL`, `SUPABASE_JWT_AUDIENCE`             |
-| `apps/web/.env.local` | Browser-visible where prefixed | `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` |
-
-`NEXT_PUBLIC_` values are compiled into browser code and must never contain secrets. Backend and
-database credentials must never be exposed through that prefix. The Supabase URL is public;
-signing keys and service credentials must never be committed or placed in frontend configuration.
-
-## Health and readiness
-
-With PostgreSQL and FastAPI running:
+### 9. Verify health and readiness
 
 ```bash
 curl http://localhost:8000/api/v1/health
 curl http://localhost:8000/api/v1/health/ready
 ```
 
-Expected responses:
+Expected bodies are `{"status":"ok"}` and `{"status":"ready"}`. Liveness checks the API process;
+readiness also executes a PostgreSQL query.
 
-```json
-{"status":"ok"}
-{"status":"ready"}
-```
+### Shutdown
 
-The liveness endpoint verifies that the API process can serve requests. The readiness endpoint also
-executes `SELECT 1` against PostgreSQL and returns HTTP 503 when the database is unavailable. See the
-[foundation endpoint documentation](docs/api/health.md).
+1. Stop the Next.js and FastAPI terminals with `Ctrl+C`.
+2. Stop Supabase without resetting its data:
 
-## Development commands
+   ```bash
+   npx --no-install supabase stop --workdir .
+   ```
 
-Run frontend commands from the repository root:
+3. Stop the ApplyGauge database containers while retaining the named data volume:
+
+   ```bash
+   docker compose down
+   ```
+
+Do not use `docker compose down -v` for routine shutdown. The `-v`/`--volumes` option permanently
+removes the local ApplyGauge database volume.
+
+## Development and testing
+
+Frontend commands run from the repository root:
 
 ```bash
-npm run dev:web
 npm run format:web
 npm run lint:web
 npm run typecheck:web
@@ -242,18 +285,17 @@ npm run test:web
 npm run build:web
 ```
 
-Run backend commands from `apps/api`:
+Backend commands run from `apps/api`:
 
 ```bash
-uv sync --frozen
 uv run ruff format --check .
 uv run ruff check .
 uv run mypy
 uv run pytest
+uv run alembic check
 ```
 
-To include the real PostgreSQL readiness test, start PostgreSQL and set
-`RUN_DATABASE_INTEGRATION=1` before running Pytest:
+Run the complete database-backed backend suite after PostgreSQL is healthy:
 
 ```powershell
 $env:RUN_DATABASE_INTEGRATION="1"
@@ -264,66 +306,36 @@ uv run pytest
 RUN_DATABASE_INTEGRATION=1 uv run pytest
 ```
 
-Ruff can apply Python formatting with `uv run ruff format .`. Prettier is currently enforced as a
-check; run `npx prettier --write apps/web` from the repository root to apply frontend formatting.
+The suite includes unit/component, API/OpenAPI, ownership, real PostgreSQL integration,
+concurrency, migration, and drift coverage. CI performs frozen installs, formatting, linting,
+strict type checks, frontend tests/build, database migrations, and backend tests against a
+PostgreSQL service container. It performs no deployment.
 
-Useful Docker commands:
+## Design
 
-```bash
-docker compose config --quiet
-docker compose up -d postgres
-docker compose ps
-docker compose logs postgres
-docker compose stop postgres
-docker compose down
-```
-
-`docker compose down` retains the named database volume unless `--volumes` is explicitly supplied.
-
-## Continuous integration
-
-GitHub Actions runs on pull requests and pushes to `main` or `feat/**` branches. The frontend job
-uses `npm ci` and checks formatting, linting, types, tests, and the production build. The backend job
-uses `uv sync --frozen` and checks Ruff formatting, Ruff linting, mypy, and Pytest against a real
-PostgreSQL service container. CI performs no deployment.
+The v1 interface uses a deep indigo application frame, a warm continuous workspace, pale lavender
+analytics grouping, restrained semantic status colors, and explicit focus-visible treatment.
+Responsive layouts preserve full content rather than hiding important job or skill data.
 
 ## Documentation
 
-- [Authoritative project specification](docs/PROJECT_SPEC.md)
+- [Project specification](docs/PROJECT_SPEC.md)
 - [Architecture overview](docs/architecture/overview.md)
 - [Architecture decisions](docs/decisions/)
-- [Deterministic extraction and correction decision](docs/decisions/010-deterministic-skill-extraction-and-manual-correction.md)
-- [Foundation API endpoints](docs/api/health.md)
-- [Authentication endpoint](docs/api/authentication.md)
-- [Local Supabase authentication development](docs/authentication/local-development.md)
-- [Milestone 4B manual browser acceptance](docs/testing/milestone-4b-manual-acceptance.md)
-- [Analytics API](docs/api/analytics.md)
-- [Current-snapshot analytics decision](docs/decisions/011-current-snapshot-analytics-and-skill-demand-semantics.md)
-- [Milestone 5 manual browser acceptance](docs/testing/milestone-5-manual-acceptance.md)
+- [API documentation](docs/api/)
+- [Local Supabase authentication](docs/authentication/local-development.md)
+- [Detailed Milestone 6 UI acceptance](docs/testing/milestone-6-manual-acceptance.md)
+- [V1 release checklist](docs/testing/v1-release-checklist.md)
 
-## Roadmap
+## Limitations and post-v1 direction
 
-1. Milestone 0: engineering foundation — complete
-2. Milestone 1: authentication and ownership foundation — complete
-3. Milestone 2: job management — complete
-4. Milestone 3: application pipeline and history — complete
-5. Milestone 4: deterministic skills engine — complete
-6. Milestone 5: analytics — implementation complete pending manual acceptance
-7. Milestone 6: polish and v1 release
+V1 intentionally has no job search/filtering, notes or salary fields, historical funnels/trends,
+recommendations, resume comparison, semantic/AI extraction, browser extension, or scraping. There
+are no separate Applications or Settings pages. ApplyGauge currently has a local-first release
+posture and does not claim a public demo. Future work remains subject to the $0 budget and explicit
+scope approval.
 
-Later releases may add browser capture, resume intelligence, semantic retrieval, asynchronous
-processing, and applied AI, but only after v1 is complete.
+## Budget
 
-## Budget and current limitations
-
-ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid APIs, hosting, storage,
-or infrastructure, and core application logic must remain portable if free hosting plans change.
-
-Authentication, manual saved-job CRUD, the application pipeline, canonical skills, deterministic
-description extraction, provenance, durable correction, and current-snapshot analytics are
-implemented. Every job starts as
-Saved; users can change current status and inspect immutable history. Create and edit forms remain
-metadata-only: saving a description performs synchronous backend extraction, while manual skill
-management remains on job detail. Analytics intentionally have no filters, historical funnel,
-cache, persistence, or chart dependency. Job search, filtering, selectable sorting, notes, and
-deployment automation are not yet implemented.
+ApplyGauge has a hard **$0 budget**. Local development must not depend on paid APIs, hosting,
+storage, or infrastructure, and the core application remains portable if free services change.

@@ -1,6 +1,6 @@
 # Local Supabase Authentication Development
 
-Milestone 1 uses local Supabase for email/password Auth, confirmation-email capture, ES256 token
+ApplyGauge v1 uses local Supabase for email/password Auth, confirmation-email capture, ES256 token
 issuance, and JWKS discovery. ApplyGauge business logic and persistence remain behind FastAPI and
 the separate application PostgreSQL instance on port 5432.
 

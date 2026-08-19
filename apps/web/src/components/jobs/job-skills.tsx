@@ -14,31 +14,34 @@ export function JobSkills({
   skills: SkillRead[] | null;
 }) {
   return (
-    <section className="mt-8" aria-labelledby="skills-heading">
-      <h3 className="text-xl font-semibold" id="skills-heading">
+    <section
+      className="mt-10 border-t border-line pt-8"
+      aria-labelledby="skills-heading"
+    >
+      <h3 className="text-xl font-semibold text-ink" id="skills-heading">
         Skills
       </h3>
-      <p className="mt-2 text-sm text-slate-600">
+      <p className="mt-2 text-sm text-muted">
         Skills can be added manually or detected from the saved job description.
       </p>
       {skills === null ? (
-        <p className="mt-3 text-slate-600" role="status">
+        <p className="mt-3 text-sm text-danger" role="alert">
           Skills are unavailable right now.
         </p>
       ) : (
         <>
           {skills.length === 0 ? (
-            <p className="mt-3 text-slate-600">No skills added yet.</p>
+            <p className="mt-3 text-muted">No skills added yet.</p>
           ) : (
-            <ul className="mt-4 grid gap-3 sm:flex sm:flex-wrap">
+            <ul className="mt-4 max-w-2xl divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface">
               {skills.map((skill) => (
                 <li
-                  className="flex min-w-0 items-center justify-between gap-4 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-slate-800"
+                  className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5 text-ink"
                   key={skill.id}
                 >
                   <div className="min-w-0">
-                    <p className="break-words font-medium">{skill.name}</p>
-                    <p className="mt-0.5 text-sm text-slate-600">
+                    <p className="break-words font-semibold">{skill.name}</p>
+                    <p className="mt-0.5 text-xs text-muted">
                       {getSkillSourceLabel(skill.sources)}
                     </p>
                   </div>

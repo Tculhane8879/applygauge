@@ -14,14 +14,22 @@ export function AuthShell({
   alternateLabel: string;
 }) {
   return (
-    <main className="mx-auto flex min-h-screen max-w-md items-center px-6 py-12">
-      <section className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold text-blue-700">ApplyGauge</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">{title}</h1>
-        <p className="mt-2 text-slate-600">{description}</p>
+    <main className="flex min-h-screen items-center justify-center bg-frame px-4 py-10 sm:px-6">
+      <section className="w-full max-w-md rounded-xl border border-white/15 bg-surface p-6 shadow-sm sm:p-8">
+        <p className="relative inline-block text-base font-bold tracking-tight text-ink">
+          Apply<span className="text-brand">Gauge</span>
+          <span
+            aria-hidden="true"
+            className="absolute -bottom-1 left-0 h-0.5 w-5 bg-brand"
+          />
+        </p>
+        <h1 className="mt-6 text-3xl font-bold tracking-tight text-ink">
+          {title}
+        </h1>
+        <p className="mt-2 text-muted">{description}</p>
         <div className="mt-6">{children}</div>
         <Link
-          className="mt-6 block text-sm font-medium text-blue-700 hover:underline"
+          className="focus-ring mt-6 inline-block rounded-sm text-sm font-semibold text-brand hover:text-brand-hover hover:underline"
           href={alternateHref}
         >
           {alternateLabel}
