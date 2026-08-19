@@ -3,7 +3,8 @@
 The API provides authenticated management of canonical skills attached to saved jobs and
 deterministic extraction from job descriptions.
 The catalog is global, curated application vocabulary; job-skill associations remain private to
-the job owner. There is no catalog creation, update, deletion, search, or analytics API.
+the job owner. There is no catalog creation, update, deletion, or search API. Read-only aggregate
+skill demand is exposed separately through the authenticated [Analytics API](analytics.md).
 
 The current migration-backed baseline contains 24 canonical skills and 14 aliases across the
 `LANGUAGE`, `FRAMEWORK`, `DATABASE`, `CLOUD`, `DEVOPS`, `MESSAGING`, `TESTING`, and `OTHER`
@@ -96,4 +97,5 @@ The job detail Skills section presents the backend provenance as `Manual`, `Dete
 `Manual + detected` while retaining the normal add and remove controls. It also explains briefly
 that skills can be manually added or detected from the saved description. The frontend does not
 scan descriptions, infer provenance, or retain removal state; it renders the canonical backend
-response after each server-authoritative refresh. Skill analytics remain out of scope.
+response after each server-authoritative refresh. The separate analytics views count each visible
+canonical association once regardless of provenance; suppressions remain private and count zero.

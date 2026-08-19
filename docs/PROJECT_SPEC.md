@@ -485,6 +485,19 @@ Display the top five most frequently detected technical skills across saved jobs
 
 Display approximately five recently created or recently updated opportunities.
 
+### Approved Milestone 5 dashboard semantics
+
+Milestone 5 implements current-snapshot analytics. Total opportunities means all currently owned
+jobs. Applied-or-later means current `APPLIED`, `SCREENING`, `INTERVIEW`, `OFFER`, or `REJECTED`;
+current interviews means exactly `INTERVIEW`. Response rate is the current responded set
+(`SCREENING`, `INTERVIEW`, `OFFER`, `REJECTED`) divided by that applied set, or unavailable when the
+denominator is zero. It is not historical conversion or funnel analysis.
+
+Dashboard skills are the first five entries from the deterministic visible canonical skill-demand
+ranking. Recent opportunities are exactly five most recently tracked jobs ordered by
+`created_at DESC, id DESC`; edits do not make an old job recent. The implemented Dashboard has
+distinct zero-data, no-skill, loading, and safe error states.
+
 The dashboard should include sensible:
 
 - empty states;
@@ -935,6 +948,9 @@ For example:
 Show technologies appearing in at least 3 jobs.
 ```
 
+Milestone 5 intentionally ships the complete ranking without a minimum threshold. Threshold,
+status, date, category, and search filtering are deferred; none is required for v1 analytics.
+
 ## INS-005
 
 Status-filtered insights are desirable but optional for initial v1 completion if they materially complicate delivery.
@@ -946,6 +962,18 @@ If deferred, record the item explicitly in the backlog as v1.1 or a minor releas
 Analytics must be computed from database truth.
 
 Do not store redundant percentages that can become stale unless there is a demonstrated performance need.
+
+### Approved Milestone 5 skill-demand semantics
+
+Skill demand counts one current visible `(job_id, skill_id)` association through authenticated
+owned jobs. Manual-only, detected-only, and dual-provenance associations count equally once;
+suppressions count zero. Percentages use all currently owned jobs, including jobs without skills.
+FastAPI calculates and round-half-up rounds them to one decimal. Ranking is `job_count DESC`, skill
+name ascending, then skill ID ascending. The frontend preserves backend values and ordering.
+
+Analytics are direct PostgreSQL aggregates with normal `READ COMMITTED` behavior. There is no
+analytics persistence, cache, materialized view, chart dependency, historical funnel, or new
+Milestone 5 index/migration. Exact rationale is recorded in ADR 011.
 
 ---
 
@@ -2275,6 +2303,11 @@ Deliver:
 - application summary metrics;
 - response-rate definition and calculation;
 - deterministic analytics tests.
+
+Implementation status: complete pending developer manual browser acceptance. The implemented
+scope is current-snapshot summary metrics, backend-computed canonical skill demand, Dashboard
+top-five/recent views, and the complete `/insights` ranking. Analytics filters and historical
+funnel/conversion analysis are not part of Milestone 5.
 
 Acceptance criteria:
 

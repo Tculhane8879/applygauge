@@ -10,10 +10,10 @@ FastAPI, and PostgreSQL.
 
 ## Project status
 
-ApplyGauge has completed Milestones 0–4A. **Milestone 4B: Deterministic Skill Extraction** is
-implementation-complete and pending developer manual acceptance. Authentication, user-facing job
-CRUD, the application pipeline, canonical skills, deterministic extraction, durable manual
-correction, and accessible provenance display are implemented.
+ApplyGauge has completed Milestones 0–4B. **Milestone 5: Analytics** is implementation-complete and
+pending developer manual acceptance. Authentication, job management, the application pipeline,
+deterministic skill extraction and correction, current-snapshot analytics, Dashboard metrics, and
+the complete Insights skill-demand ranking are implemented.
 
 Implemented today:
 
@@ -40,15 +40,19 @@ Implemented today:
 - synchronous deterministic extraction during job creation and changed-description updates;
 - atomic manual/detected provenance reconciliation with durable false-positive correction;
 - accessible `Manual`, `Detected`, and `Manual + detected` labels on job detail.
+- authenticated current-snapshot summary and skill-demand aggregates computed by FastAPI;
+- Dashboard totals, applied/interview metrics, current-state response rate, top-five skills, and
+  recently tracked opportunities;
+- a complete deterministic `/insights` ranking with backend-computed one-decimal percentages;
+- distinct responsive loading, empty, no-skill, and safe analytics-error states.
 
-The v1 product features described below are planned, not yet implemented.
+The remaining v1 product features described below are planned, not yet implemented.
 
 ## Planned v1 scope
 
-Version 1 will let independent users manually save job opportunities, track application status
-history, preserve notes, and view explainable aggregate job-search insights. Authentication,
-strict per-user isolation, deterministic detection, and correction of known technologies are
-already implemented foundations for that remaining scope.
+Version 1 lets independent users authenticate, save job opportunities, track application status
+history, correct deterministic known-skill detection, and view explainable aggregate job-search
+insights. Notes plus job search/filtering remain planned v1 work.
 
 Browser capture, resume intelligence, semantic/vector retrieval, background workers, and applied AI
 belong to later versions and are intentionally excluded from v1 and the current milestone.
@@ -293,6 +297,9 @@ PostgreSQL service container. CI performs no deployment.
 - [Authentication endpoint](docs/api/authentication.md)
 - [Local Supabase authentication development](docs/authentication/local-development.md)
 - [Milestone 4B manual browser acceptance](docs/testing/milestone-4b-manual-acceptance.md)
+- [Analytics API](docs/api/analytics.md)
+- [Current-snapshot analytics decision](docs/decisions/011-current-snapshot-analytics-and-skill-demand-semantics.md)
+- [Milestone 5 manual browser acceptance](docs/testing/milestone-5-manual-acceptance.md)
 
 ## Roadmap
 
@@ -300,8 +307,8 @@ PostgreSQL service container. CI performs no deployment.
 2. Milestone 1: authentication and ownership foundation — complete
 3. Milestone 2: job management — complete
 4. Milestone 3: application pipeline and history — complete
-5. Milestone 4: deterministic skills engine — 4A complete; 4B implementation complete pending manual acceptance
-6. Milestone 5: analytics
+5. Milestone 4: deterministic skills engine — complete
+6. Milestone 5: analytics — implementation complete pending manual acceptance
 7. Milestone 6: polish and v1 release
 
 Later releases may add browser capture, resume intelligence, semantic retrieval, asynchronous
@@ -313,8 +320,10 @@ ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid API
 or infrastructure, and core application logic must remain portable if free hosting plans change.
 
 Authentication, manual saved-job CRUD, the application pipeline, canonical skills, deterministic
-description extraction, provenance, and durable correction are implemented. Every job starts as
+description extraction, provenance, durable correction, and current-snapshot analytics are
+implemented. Every job starts as
 Saved; users can change current status and inspect immutable history. Create and edit forms remain
 metadata-only: saving a description performs synchronous backend extraction, while manual skill
-management remains on job detail. Job search, filtering, selectable sorting, notes, product
-analytics, and deployment automation are not yet implemented.
+management remains on job detail. Analytics intentionally have no filters, historical funnel,
+cache, persistence, or chart dependency. Job search, filtering, selectable sorting, notes, and
+deployment automation are not yet implemented.

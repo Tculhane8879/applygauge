@@ -2,10 +2,10 @@
 
 ## Status and scope
 
-This document describes the v1 direction and architecture implemented through Milestone 4B.
+This document describes the v1 direction and architecture implemented through Milestone 5.
 Authentication, user-owned job management, the application pipeline, canonical skills,
-deterministic extraction, manual correction, and provenance display are implemented. Milestone 4B
-is pending developer manual acceptance.
+deterministic extraction, manual correction, provenance display, and current-snapshot analytics are
+implemented. Milestone 5 is pending developer manual acceptance.
 
 ## System boundary
 
@@ -37,7 +37,7 @@ redirect to the persisted resource or list.
 
 FastAPI is the application boundary and owns authenticated identity validation, domain logic,
 authorization and ownership enforcement, input validation beyond UI concerns, status transitions,
-and deterministic skill extraction. Notes and analytics remain for later milestones.
+deterministic skill extraction, and read-only analytics. Notes remain for later milestones.
 
 The backend is a modular monolith: one deployable API organized into cohesive modules. ApplyGauge
 does not need microservices, a message broker, or a worker during v1.
@@ -53,6 +53,12 @@ unified exact-lookup `skill_terms` namespace, and private same-owner `job_skills
 Milestone 4B adds explicit extraction eligibility, manual/detected association provenance, and
 private durable suppressions. Existing-job skill mutations serialize on the owned `jobs` row;
 new-job extraction remains inside the already-owned creation transaction.
+
+Milestone 5 adds no persistence model. FastAPI aggregates current owned jobs and visible canonical
+job-skill associations directly in PostgreSQL. Summary, top-five skill demand, and recently created
+jobs serve the Dashboard; a separate endpoint serves the complete Insights ranking. Percentages
+use all owned jobs and are computed in the backend. No cache, materialized view, chart dependency,
+filter, or historical funnel calculation is present.
 
 The persistence layer remains ordinary PostgreSQL-compatible. A future free deployment may use
 Supabase-hosted PostgreSQL, but core behavior must not depend unnecessarily on proprietary Supabase
@@ -107,8 +113,8 @@ that is temporarily unable to serve database-backed application requests.
 ## Current request flow
 
 The public landing page calls the liveness endpoint. Authenticated users establish a cookie-backed
-Supabase session, and the protected dashboard forwards its access token to
-`GET /api/v1/auth/me`. FastAPI independently validates the token before returning identity. The
+Supabase session, and protected Server Components forward access tokens through the centralized
+authenticated API transport. FastAPI independently validates every protected request. The
 readiness endpoint separately verifies the API-to-application-database connection. Authenticated
 Saved Jobs list and detail Server Components obtain the current Supabase access token through one
 server-only provider and call FastAPI through the centralized authenticated transport. FastAPI
@@ -118,6 +124,12 @@ and use focused Server Actions for status and skill changes. Successful changes 
 server-authoritative job, history, and skill data. Aliases are resolved only by FastAPI; the
 frontend neither canonicalizes terms nor mutates the global catalog.
 
+The Dashboard calls `GET /api/v1/analytics/overview`; Insights calls
+`GET /api/v1/analytics/skills`. Both are authenticated Server Components. Presentation preserves
+backend ordering and only formats already-computed numeric percentages. Every aggregate starts
+from token-derived ownership through `jobs`, preventing global skill identities from leaking
+cross-user usage.
+
 Job creation and changed descriptions synchronously run the pure deterministic extractor inside
 the job transaction. FastAPI reconciles canonical associations against private suppressions and
 returns ordered `MANUAL`/`DETECTED` domain sources. The frontend renders readable provenance but
@@ -125,8 +137,7 @@ does not scan descriptions, infer sources, or retain correction state.
 
 ## Future evolution, not yet implemented
 
-- Later v1 work adds search, filtering, notes, and explainable analytics inside the FastAPI
-  modular monolith.
+- Later v1 work may add search, filtering, and notes inside the FastAPI modular monolith.
 - Post-v1 releases may add a browser extension, resume intelligence, semantic retrieval, background
   processing, and applied AI only when their product requirements justify them.
 

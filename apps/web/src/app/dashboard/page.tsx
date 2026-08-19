@@ -1,70 +1,67 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
 
-import { IdentityPanel } from "@/components/auth/identity-panel";
-import { SignOutButton } from "@/components/auth/sign-out-button";
-import { getAuthenticatedIdentity } from "@/lib/api";
-import { hasAuthenticatedClaims } from "@/lib/auth/claims";
-import { createClient } from "@/lib/supabase/server";
+import { AnalyticsShell } from "@/components/analytics/analytics-shell";
+import { MetricCards } from "@/components/analytics/metric-cards";
+import { RecentJobs } from "@/components/analytics/recent-jobs";
+import { TopSkillsSection } from "@/components/analytics/skill-demand-list";
+import { getAnalyticsOverview } from "@/lib/api/analytics";
+import { requireAuthenticatedApiSession } from "@/lib/api/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  if (!hasAuthenticatedClaims(claimsData?.claims)) redirect("/login");
-  const email = claimsData.claims.email;
-
-  let identity;
+  const getAccessToken = await requireAuthenticatedApiSession();
+  let overview;
   try {
-    identity = await getAuthenticatedIdentity(async () => {
-      const { data } = await supabase.auth.getSession();
-      return data.session?.access_token ?? null;
-    });
+    overview = await getAnalyticsOverview(getAccessToken);
   } catch {
     return (
-      <DashboardShell email={email}>
+      <AnalyticsShell
+        description="Your current job-search activity and skill demand."
+        title="Dashboard"
+      >
         <p className="rounded-xl bg-red-50 p-4 text-red-800" role="alert">
-          FastAPI could not verify this session. Please sign out and try again.
+          Analytics could not be loaded right now. Please try again later.
         </p>
-      </DashboardShell>
+      </AnalyticsShell>
+    );
+  }
+
+  if (overview.total_jobs === 0) {
+    return (
+      <AnalyticsShell
+        description="Your current job-search activity and skill demand."
+        title="Dashboard"
+      >
+        <section className="rounded-2xl border border-blue-200 bg-blue-50 p-8 text-center">
+          <h2 className="text-2xl font-bold text-blue-950">
+            Start building your job-search picture
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-blue-900">
+            Track a few jobs to start seeing skill demand and application
+            insights.
+          </p>
+          <Link
+            className="mt-6 inline-flex rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white"
+            href="/jobs/new"
+          >
+            Add job
+          </Link>
+        </section>
+      </AnalyticsShell>
     );
   }
 
   return (
-    <DashboardShell email={email}>
-      <IdentityPanel identity={identity} />
-      <Link
-        className="mt-6 block rounded-xl border border-blue-200 bg-blue-50 p-5 transition hover:border-blue-400"
-        href="/jobs"
-      >
-        <span className="text-lg font-semibold text-blue-950">Saved Jobs</span>
-        <span className="mt-1 block text-blue-800">
-          View your saved job opportunities.
-        </span>
-      </Link>
-    </DashboardShell>
-  );
-}
-
-function DashboardShell({
-  email,
-  children,
-}: {
-  email: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <main className="mx-auto min-h-screen max-w-3xl px-6 py-12">
-      <header className="flex items-start justify-between gap-6">
-        <div>
-          <p className="text-sm font-semibold text-blue-700">ApplyGauge</p>
-          <h1 className="mt-2 text-3xl font-bold">Authentication verified</h1>
-          <p className="mt-2 text-slate-600">Signed in as {email}</p>
-        </div>
-        <SignOutButton />
-      </header>
-      <div className="mt-8">{children}</div>
-    </main>
+    <AnalyticsShell
+      description="Your current job-search activity and skill demand."
+      title="Dashboard"
+    >
+      <MetricCards overview={overview} />
+      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+        <TopSkillsSection skills={overview.top_skills} />
+        <RecentJobs jobs={overview.recent_jobs} />
+      </div>
+    </AnalyticsShell>
   );
 }
