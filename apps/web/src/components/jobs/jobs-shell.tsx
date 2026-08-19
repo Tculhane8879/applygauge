@@ -18,12 +18,18 @@ export function JobsShell({ children }: { children: React.ReactNode }) {
             Your private collection of job opportunities.
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           <Link
             className="font-medium text-blue-700 hover:underline"
             href="/dashboard"
           >
             Dashboard
+          </Link>
+          <Link
+            className="font-medium text-blue-700 hover:underline"
+            href="/insights"
+          >
+            Insights
           </Link>
           <SignOutButton />
         </div>

@@ -1,0 +1,1 @@
+"""Authenticated analytics read models."""
