@@ -33,6 +33,9 @@ same company for one user without sharing that company record with other users.
 
 Every new job starts with `current_status: "SAVED"`. Creation also appends the first immutable
 status event, from `null` to `SAVED`, using the job's creation timestamp.
+When a description is present, the same transaction synchronously extracts reviewed skill terms
+and creates detected canonical associations. Job, initial status, and detection commit once; an
+unexpected extraction failure rolls back the entire creation.
 
 ## List jobs
 
@@ -74,6 +77,11 @@ is retained even when it no longer has an associated job.
 
 This general metadata endpoint does not accept `current_status`. Status changes use the dedicated
 pipeline endpoint below and always preserve history.
+
+When `description` is explicitly changed, the owned job row is locked and metadata plus detected
+skill reconciliation commit atomically. An omitted or unchanged description does not run
+extraction. Clearing it removes detected-only associations, converts dual provenance to
+manual-only, and preserves manual-only associations and prior corrections.
 
 ## Change application status
 
@@ -122,10 +130,11 @@ Mutations run through Server Actions that call this FastAPI API; the frontend do
 Supabase database APIs. The frontend shows current status on job lists and details, renders
 immutable history, and changes status through an authenticated Server Action that calls the
 dedicated transition endpoint. History remains server-authoritative and refreshes from FastAPI
-after a successful transition. Job detail also lists and manually manages canonical skills through
-the separate API below. Notes, deterministic extraction, search, filtering, and analytics belong
-to later increments or milestones.
+after a successful transition. Job detail also lists canonical skills, shows manual/detected
+provenance, and supports correction through the separate API below. Notes, search, filtering, and
+analytics belong to later milestones.
 
 Authenticated manual job-skill endpoints are documented separately in the
 [Job Skills API](skills.md). The job list and create/edit metadata forms intentionally remain
-skill-free; associations are managed separately on job detail.
+skill-control-free; saving description metadata triggers backend extraction while manual
+associations are managed separately on job detail.

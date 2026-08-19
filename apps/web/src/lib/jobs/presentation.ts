@@ -1,6 +1,7 @@
 import {
   type ApplicationStatus,
   type EmploymentType,
+  type SkillSource,
   type WorkArrangement,
 } from "@/lib/api/jobs";
 
@@ -58,4 +59,21 @@ export function formatJobDate(value: string) {
 
 export function formatJobDateTime(value: string) {
   return `${dateTimeFormatter.format(new Date(value))} UTC`;
+}
+
+export function getSkillSourceLabel(sources: SkillSource[]) {
+  if (sources.length === 1 && sources[0] === "MANUAL") {
+    return "Manual";
+  }
+  if (sources.length === 1 && sources[0] === "DETECTED") {
+    return "Detected";
+  }
+  if (
+    sources.length === 2 &&
+    sources[0] === "MANUAL" &&
+    sources[1] === "DETECTED"
+  ) {
+    return "Manual + detected";
+  }
+  return "Unknown source";
 }

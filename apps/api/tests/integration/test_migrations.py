@@ -15,16 +15,22 @@ def test_migration_creates_domain_tables_at_head(
 ) -> None:
     inspector = inspect(migrated_engine)
 
-    assert {"companies", "jobs", "status_events", "skills", "skill_terms", "job_skills"}.issubset(
-        inspector.get_table_names()
-    )
+    assert {
+        "companies",
+        "jobs",
+        "status_events",
+        "skills",
+        "skill_terms",
+        "job_skills",
+        "job_skill_suppressions",
+    }.issubset(inspector.get_table_names())
 
     config = make_alembic_config(migrated_database_url)
     expected_head = ScriptDirectory.from_config(config).get_current_head()
     with migrated_engine.connect() as connection:
         current_revision = MigrationContext.configure(connection).get_current_revision()
 
-    assert current_revision == expected_head == "20260818_0003"
+    assert current_revision == expected_head == "20260818_0004"
 
     current_status = next(
         column for column in inspector.get_columns("jobs") if column["name"] == "current_status"
@@ -84,7 +90,6 @@ def test_skills_migration_seeds_catalog_and_preserves_existing_domain(
     engine.dispose()
 
     command.upgrade(config, "20260818_0003")
-    command.check(config)
     engine = create_engine(disposable_database_url)
     inspector = inspect(engine)
     assert {"skills", "skill_terms", "job_skills"}.issubset(inspector.get_table_names())
@@ -152,6 +157,141 @@ def test_skills_migration_seeds_catalog_and_preserves_existing_domain(
         assert connection.scalar(text("SELECT count(*) FROM skills")) == 24
         assert connection.scalar(text("SELECT count(*) FROM skill_terms")) == 38
     engine.dispose()
+
+
+def test_extraction_foundation_migrates_4a_associations_and_round_trips(
+    disposable_database_url: str,
+) -> None:
+    config = make_alembic_config(disposable_database_url)
+    command.upgrade(config, "20260818_0003")
+    company_id, job_id, event_id, user_id = uuid4(), uuid4(), uuid4(), uuid4()
+    engine = create_engine(disposable_database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO companies (id, user_id, name, normalized_name) "
+                "VALUES (:id, :user_id, 'Existing Company', 'existing company')"
+            ),
+            {"id": company_id, "user_id": user_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO jobs (id, user_id, company_id, title, current_status) "
+                "VALUES (:id, :user_id, :company_id, 'Existing Job', 'SAVED')"
+            ),
+            {"id": job_id, "user_id": user_id, "company_id": company_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO status_events "
+                "(id, user_id, job_id, from_status, to_status) "
+                "VALUES (:id, :user_id, :job_id, NULL, 'SAVED')"
+            ),
+            {"id": event_id, "user_id": user_id, "job_id": job_id},
+        )
+        catalog_rows = connection.execute(
+            text("SELECT id, name, created_at FROM skills WHERE name IN ('Python', 'PostgreSQL')")
+        ).all()
+        skill_ids = {row.name: row.id for row in catalog_rows}
+        term_ids: dict[object, object] = {
+            row.normalized_term: row.id
+            for row in connection.execute(text("SELECT normalized_term, id FROM skill_terms"))
+        }
+        for skill_id in skill_ids.values():
+            connection.execute(
+                text(
+                    "INSERT INTO job_skills (job_id, skill_id, user_id) "
+                    "VALUES (:job_id, :skill_id, :user_id)"
+                ),
+                {"job_id": job_id, "skill_id": skill_id, "user_id": user_id},
+            )
+        association_timestamps: dict[object, object] = {
+            row.skill_id: row.created_at
+            for row in connection.execute(
+                text("SELECT skill_id, created_at FROM job_skills WHERE job_id = :job_id"),
+                {"job_id": job_id},
+            )
+        }
+    engine.dispose()
+
+    command.upgrade(config, "20260818_0004")
+    command.check(config)
+    engine = create_engine(disposable_database_url)
+    inspector = inspect(engine)
+    with engine.connect() as connection:
+        migrated = connection.execute(
+            text(
+                "SELECT skill_id, is_manual, is_detected, created_at FROM job_skills "
+                "WHERE job_id = :job_id"
+            ),
+            {"job_id": job_id},
+        ).all()
+        assert len(migrated) == 2
+        assert all(row.is_manual is True and row.is_detected is False for row in migrated)
+        assert {row.skill_id: row.created_at for row in migrated} == association_timestamps
+        assert connection.scalar(text("SELECT count(*) FROM job_skill_suppressions")) == 0
+        extractable = set(
+            connection.scalars(
+                text("SELECT term FROM skill_terms WHERE is_extractable ORDER BY term")
+            ).all()
+        )
+        assert len(extractable) == 34
+        assert {"C", "JS", "TS", "Node"}.isdisjoint(extractable)
+        assert {
+            row.normalized_term: row.id
+            for row in connection.execute(text("SELECT normalized_term, id FROM skill_terms"))
+        } == term_ids
+        assert {
+            row.name: row.id
+            for row in connection.execute(text("SELECT id, name FROM skills"))
+            if row.name in skill_ids
+        } == skill_ids
+        assert (
+            connection.scalar(text("SELECT title FROM jobs WHERE id = :id"), {"id": job_id})
+            == "Existing Job"
+        )
+        assert (
+            connection.scalar(
+                text("SELECT to_status FROM status_events WHERE id = :id"), {"id": event_id}
+            )
+            == "SAVED"
+        )
+    assert all(
+        column["default"] is None
+        for table, names in (
+            ("skill_terms", {"is_extractable"}),
+            ("job_skills", {"is_manual", "is_detected"}),
+        )
+        for column in inspector.get_columns(table)
+        if column["name"] in names
+    )
+    engine.dispose()
+
+    command.downgrade(config, "20260818_0003")
+    engine = create_engine(disposable_database_url)
+    inspector = inspect(engine)
+    assert "job_skill_suppressions" not in inspector.get_table_names()
+    assert {column["name"] for column in inspector.get_columns("job_skills")}.isdisjoint(
+        {"is_manual", "is_detected"}
+    )
+    assert "is_extractable" not in {
+        column["name"] for column in inspector.get_columns("skill_terms")
+    }
+    with engine.connect() as connection:
+        assert (
+            connection.scalar(
+                text("SELECT count(*) FROM job_skills WHERE job_id = :job_id"), {"job_id": job_id}
+            )
+            == 2
+        )
+        assert {
+            row.normalized_term: row.id
+            for row in connection.execute(text("SELECT normalized_term, id FROM skill_terms"))
+        } == term_ids
+    engine.dispose()
+
+    command.upgrade(config, "head")
+    command.check(config)
 
 
 def test_pipeline_migration_backfills_and_round_trips_existing_data(

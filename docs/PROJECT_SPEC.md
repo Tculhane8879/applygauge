@@ -1723,7 +1723,7 @@ docs/
 │   ├── 001-monorepo.md
 │   ├── 002-fastapi.md
 │   ├── 003-supabase.md
-│   ├── 004-deterministic-skill-extraction.md
+│   ├── 010-deterministic-skill-extraction-and-manual-correction.md
 │   └── ...
 │
 └── api/
@@ -2227,15 +2227,19 @@ Deliver:
 - detected skill display and correction behavior;
 - extraction tests.
 
-Important design question to resolve before implementation:
+Implemented correction policy:
 
-When the job description changes, how do previously manually corrected skills behave?
+- only explicitly reviewed extraction-safe terms participate in prose matching;
+- associations preserve independent manual and detected provenance;
+- description changes reconcile detected provenance without destroying manual intent;
+- removing a detected association durably prevents automatic re-addition for that job;
+- manually adding that skill clears the correction and establishes manual intent;
+- omitted or unchanged descriptions do not run reconciliation;
+- clearing a description removes detected-only provenance while retaining manual provenance and
+  prior corrections;
+- existing-job skill mutations serialize on the owned job row and commit atomically.
 
-Preferred principle:
-
-- manual user decisions should not be silently destroyed by re-analysis.
-
-Define and document the exact behavior before writing the update algorithm.
+The exact state transitions, deterministic matching rules, and tradeoffs are recorded in ADR 010.
 
 Acceptance criteria:
 

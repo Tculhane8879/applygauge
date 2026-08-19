@@ -18,6 +18,8 @@ from applygauge_api.jobs.models import Company, Job, StatusEvent
 from applygauge_api.jobs.normalization import normalize_company_name
 from applygauge_api.jobs.schemas import JobCreate, JobUpdate, StatusUpdate
 from applygauge_api.main import app
+from applygauge_api.skills import service as skill_service
+from applygauge_api.skills.models import JobSkill
 
 pytestmark = pytest.mark.integration
 
@@ -139,6 +141,55 @@ def test_authenticated_user_creates_job_and_company(database_session: Session) -
     assert event_row.from_status is None
     assert event_row.to_status == "SAVED"
     assert event_row.changed_at == job.created_at
+
+
+def test_job_creation_extracts_canonical_detected_skills(database_session: Session) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post(
+            "/api/v1/jobs",
+            json=payload(description="Python, Postgres/PostgreSQL, and Docker"),
+        )
+        skills = client.get(f"/api/v1/jobs/{created.json()['id']}/skills")
+
+    assert created.status_code == 201
+    assert skills.status_code == 200
+    assert [(item["name"], item["sources"]) for item in skills.json()["items"]] == [
+        ("Docker", ["DETECTED"]),
+        ("PostgreSQL", ["DETECTED"]),
+        ("Python", ["DETECTED"]),
+    ]
+    assert len(skills.json()["items"]) == 3
+
+
+@pytest.mark.parametrize("description", [None, "   "])
+def test_job_creation_without_description_creates_no_detected_skills(
+    database_session: Session, description: str | None
+) -> None:
+    with client_as(database_session, USER_A) as client:
+        created = client.post("/api/v1/jobs", json=payload(description=description))
+        skills = client.get(f"/api/v1/jobs/{created.json()['id']}/skills")
+    assert created.status_code == 201
+    assert skills.json() == {"items": []}
+
+
+def test_job_creation_rolls_back_job_status_company_and_skills_on_extraction_failure(
+    database_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_reconciliation(_session: Session, _job: Job, _description: str | None) -> None:
+        raise RuntimeError("deterministic reconciliation failure")
+
+    monkeypatch.setattr(skill_service, "reconcile_detected_skills", fail_reconciliation)
+    with pytest.raises(RuntimeError, match="deterministic reconciliation failure"):
+        job_service.create_job(
+            database_session,
+            USER_A,
+            JobCreate.model_validate(payload(description="Python")),
+        )
+
+    assert database_session.scalar(select(func.count()).select_from(Job)) == 0
+    assert database_session.scalar(select(func.count()).select_from(StatusEvent)) == 0
+    assert database_session.scalar(select(func.count()).select_from(JobSkill)) == 0
+    assert database_session.scalar(select(func.count()).select_from(Company)) == 0
 
 
 def test_same_normalized_company_is_reused(database_session: Session) -> None:

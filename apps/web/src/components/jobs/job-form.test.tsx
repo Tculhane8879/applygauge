@@ -26,6 +26,9 @@ describe("JobForm", () => {
     expect(screen.getByLabelText("Employment type")).toHaveValue("UNKNOWN");
     expect(screen.queryByLabelText(/status/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/skill/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /detect|extract/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("prepopulates every supported edit field", () => {
@@ -37,6 +40,9 @@ describe("JobForm", () => {
     expect(screen.getByLabelText("Location")).toHaveValue("Seattle");
     expect(screen.queryByLabelText(/status/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/skill/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /detect|extract/i }),
+    ).not.toBeInTheDocument();
   });
 
   it("displays action field and form errors", async () => {

@@ -77,6 +77,10 @@ def create_job(session: Session, current_user: AuthenticatedUser, payload: JobCr
             )
         )
         session.flush()
+        if payload.description is not None:
+            from applygauge_api.skills.service import reconcile_detected_skills
+
+            reconcile_detected_skills(session, job, payload.description)
         session.commit()
         return job
     except Exception:
@@ -163,8 +167,17 @@ def update_job(
     payload: JobUpdate,
 ) -> Job:
     try:
-        job = get_owned_job(session, current_user.id, job_id)
         supplied_fields = payload.model_fields_set
+        query = (
+            select(Job)
+            .options(joinedload(Job.company))
+            .where(Job.id == job_id, Job.user_id == current_user.id)
+        )
+        if "description" in supplied_fields:
+            query = query.with_for_update(of=Job)
+        job = session.scalar(query)
+        if job is None:
+            raise JobNotFoundError
 
         if "company_name" in supplied_fields:
             assert payload.company_name is not None
@@ -172,8 +185,11 @@ def update_job(
         if "title" in supplied_fields:
             assert payload.title is not None
             job.title = payload.title
-        if "description" in supplied_fields:
+        if "description" in supplied_fields and job.description != payload.description:
             job.description = payload.description
+            from applygauge_api.skills.service import reconcile_detected_skills
+
+            reconcile_detected_skills(session, job, payload.description)
         if "job_url" in supplied_fields:
             job.job_url = str(payload.job_url) if payload.job_url is not None else None
         if "location" in supplied_fields:

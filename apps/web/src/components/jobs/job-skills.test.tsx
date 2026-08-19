@@ -15,7 +15,13 @@ describe("JobSkills", () => {
     render(<JobSkills {...actions} skills={[]} />);
 
     expect(screen.getByRole("heading", { name: "Skills" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Skills can be added manually or detected from the saved job description.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText("No skills added yet.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Skill name")).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
@@ -24,8 +30,24 @@ describe("JobSkills", () => {
       <JobSkills
         {...actions}
         skills={[
-          { id: "python", name: "Python", category: "LANGUAGE" },
-          { id: "postgres", name: "PostgreSQL", category: "DATABASE" },
+          {
+            id: "python",
+            name: "Python",
+            category: "LANGUAGE",
+            sources: ["DETECTED"],
+          },
+          {
+            id: "postgres",
+            name: "PostgreSQL",
+            category: "DATABASE",
+            sources: ["MANUAL"],
+          },
+          {
+            id: "react",
+            name: "React",
+            category: "FRAMEWORK",
+            sources: ["MANUAL", "DETECTED"],
+          },
         ]}
       />,
     );
@@ -33,8 +55,17 @@ describe("JobSkills", () => {
     expect(
       within(screen.getByRole("list"))
         .getAllByRole("listitem")
-        .map((item) => item.querySelector("span")?.textContent),
-    ).toEqual(["Python", "PostgreSQL"]);
+        .map((item) => item.querySelector("p")?.textContent),
+    ).toEqual(["Python", "PostgreSQL", "React"]);
+    expect(screen.getByText("Detected")).toBeInTheDocument();
+    expect(screen.getByText("Manual")).toBeInTheDocument();
+    expect(screen.getByText("Manual + detected")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove Python" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove React" }),
+    ).toBeInTheDocument();
   });
 
   it("preserves punctuation-sensitive canonical display names exactly", () => {
@@ -42,15 +73,30 @@ describe("JobSkills", () => {
       <JobSkills
         {...actions}
         skills={[
-          { id: "c", name: "C", category: "LANGUAGE" },
-          { id: "cpp", name: "C++", category: "LANGUAGE" },
-          { id: "csharp", name: "C#", category: "LANGUAGE" },
-          { id: "next", name: "Next.js", category: "FRAMEWORK" },
+          { id: "cpp", name: "C++", category: "LANGUAGE", sources: ["MANUAL"] },
+          {
+            id: "csharp",
+            name: "C#",
+            category: "LANGUAGE",
+            sources: ["DETECTED"],
+          },
+          {
+            id: "next",
+            name: "Next.js",
+            category: "FRAMEWORK",
+            sources: ["MANUAL", "DETECTED"],
+          },
+          {
+            id: "dotnet",
+            name: ".NET",
+            category: "FRAMEWORK",
+            sources: ["MANUAL"],
+          },
         ]}
       />,
     );
 
-    for (const name of ["C", "C++", "C#", "Next.js"]) {
+    for (const name of ["C++", "C#", "Next.js", ".NET"]) {
       expect(screen.getByText(name)).toBeInTheDocument();
     }
     expect(screen.queryByText("cpp")).not.toBeInTheDocument();
@@ -65,5 +111,6 @@ describe("JobSkills", () => {
     );
     expect(screen.queryByLabelText("Skill name")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByText(/suppression/i)).not.toBeInTheDocument();
   });
 });

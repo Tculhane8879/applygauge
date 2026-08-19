@@ -10,10 +10,10 @@ FastAPI, and PostgreSQL.
 
 ## Project status
 
-ApplyGauge has completed Milestones 0–3. **Milestone 4A: Canonical Skills and Manual
-Associations** is implementation-complete and awaits developer manual acceptance. Authentication,
-user-facing job CRUD, the application pipeline, canonical skill persistence/APIs, and job-detail
-skill display and authenticated manual skill management are implemented.
+ApplyGauge has completed Milestones 0–4A. **Milestone 4B: Deterministic Skill Extraction** is
+implementation-complete and pending developer manual acceptance. Authentication, user-facing job
+CRUD, the application pipeline, canonical skills, deterministic extraction, durable manual
+correction, and accessible provenance display are implemented.
 
 Implemented today:
 
@@ -36,15 +36,19 @@ Implemented today:
 - a curated global canonical skill catalog with deterministic aliases;
 - ownership-protected backend job-skill list/add/remove APIs;
 - canonical skill display, empty/error states, and authenticated add/remove controls on job detail.
+- explicit migration-backed extraction eligibility for reviewed canonical terms and aliases;
+- synchronous deterministic extraction during job creation and changed-description updates;
+- atomic manual/detected provenance reconciliation with durable false-positive correction;
+- accessible `Manual`, `Detected`, and `Manual + detected` labels on job detail.
 
 The v1 product features described below are planned, not yet implemented.
 
 ## Planned v1 scope
 
 Version 1 will let independent users manually save job opportunities, track application status
-history, preserve notes, deterministically detect known technologies in job descriptions, correct
-those detected skills, and view explainable aggregate job-search insights. Authentication and
-strict per-user data isolation are required parts of v1.
+history, preserve notes, and view explainable aggregate job-search insights. Authentication,
+strict per-user isolation, deterministic detection, and correction of known technologies are
+already implemented foundations for that remaining scope.
 
 Browser capture, resume intelligence, semantic/vector retrieval, background workers, and applied AI
 belong to later versions and are intentionally excluded from v1 and the current milestone.
@@ -284,9 +288,11 @@ PostgreSQL service container. CI performs no deployment.
 - [Authoritative project specification](docs/PROJECT_SPEC.md)
 - [Architecture overview](docs/architecture/overview.md)
 - [Architecture decisions](docs/decisions/)
+- [Deterministic extraction and correction decision](docs/decisions/010-deterministic-skill-extraction-and-manual-correction.md)
 - [Foundation API endpoints](docs/api/health.md)
 - [Authentication endpoint](docs/api/authentication.md)
 - [Local Supabase authentication development](docs/authentication/local-development.md)
+- [Milestone 4B manual browser acceptance](docs/testing/milestone-4b-manual-acceptance.md)
 
 ## Roadmap
 
@@ -294,7 +300,7 @@ PostgreSQL service container. CI performs no deployment.
 2. Milestone 1: authentication and ownership foundation — complete
 3. Milestone 2: job management — complete
 4. Milestone 3: application pipeline and history — complete
-5. Milestone 4: deterministic skills engine — Milestone 4A implementation complete; manual acceptance pending
+5. Milestone 4: deterministic skills engine — 4A complete; 4B implementation complete pending manual acceptance
 6. Milestone 5: analytics
 7. Milestone 6: polish and v1 release
 
@@ -306,9 +312,9 @@ processing, and applied AI, but only after v1 is complete.
 ApplyGauge has a hard **$0 budget**. Local development cannot depend on paid APIs, hosting, storage,
 or infrastructure, and core application logic must remain portable if free hosting plans change.
 
-Authentication, manual saved-job CRUD, the application pipeline, and manual canonical skill
-associations are implemented. Every job
-starts as Saved; users can view and change current status and inspect immutable chronological
-history. Create and edit forms remain metadata-only; skills are managed separately on job detail.
-Job search, filtering, selectable sorting, deterministic skill extraction, notes, product
+Authentication, manual saved-job CRUD, the application pipeline, canonical skills, deterministic
+description extraction, provenance, and durable correction are implemented. Every job starts as
+Saved; users can change current status and inspect immutable history. Create and edit forms remain
+metadata-only: saving a description performs synchronous backend extraction, while manual skill
+management remains on job detail. Job search, filtering, selectable sorting, notes, product
 analytics, and deployment automation are not yet implemented.

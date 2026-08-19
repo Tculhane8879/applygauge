@@ -2,9 +2,10 @@
 
 ## Status and scope
 
-This document describes the v1 direction and the architecture implemented through Milestone 4A.
-Authentication, user-owned job management, the application pipeline, and manual canonical skill
-associations are implemented. Extraction and provenance remain deferred to Milestone 4B.
+This document describes the v1 direction and architecture implemented through Milestone 4B.
+Authentication, user-owned job management, the application pipeline, canonical skills,
+deterministic extraction, manual correction, and provenance display are implemented. Milestone 4B
+is pending developer manual acceptance.
 
 ## System boundary
 
@@ -34,9 +35,9 @@ redirect to the persisted resource or list.
 
 ### FastAPI
 
-FastAPI is the application boundary and owns authenticated identity validation. It will also own
-domain logic, authorization and ownership enforcement, input validation beyond UI concerns, status
-transitions, deterministic skill extraction, notes, and analytics as their milestones arrive.
+FastAPI is the application boundary and owns authenticated identity validation, domain logic,
+authorization and ownership enforcement, input validation beyond UI concerns, status transitions,
+and deterministic skill extraction. Notes and analytics remain for later milestones.
 
 The backend is a modular monolith: one deployable API organized into cohesive modules. ApplyGauge
 does not need microservices, a message broker, or a worker during v1.
@@ -49,6 +50,9 @@ the separate ApplyGauge application database. Milestone 3 adds a checked current
 and immutable same-owner transition events. FastAPI updates both atomically while holding an
 ownership-scoped PostgreSQL row lock. Milestone 4A adds a global curated `skills` vocabulary, a
 unified exact-lookup `skill_terms` namespace, and private same-owner `job_skills` associations.
+Milestone 4B adds explicit extraction eligibility, manual/detected association provenance, and
+private durable suppressions. Existing-job skill mutations serialize on the owned `jobs` row;
+new-job extraction remains inside the already-owned creation transaction.
 
 The persistence layer remains ordinary PostgreSQL-compatible. A future free deployment may use
 Supabase-hosted PostgreSQL, but core behavior must not depend unnecessarily on proprietary Supabase
@@ -114,10 +118,15 @@ and use focused Server Actions for status and skill changes. Successful changes 
 server-authoritative job, history, and skill data. Aliases are resolved only by FastAPI; the
 frontend neither canonicalizes terms nor mutates the global catalog.
 
+Job creation and changed descriptions synchronously run the pure deterministic extractor inside
+the job transaction. FastAPI reconciles canonical associations against private suppressions and
+returns ordered `MANUAL`/`DETECTED` domain sources. The frontend renders readable provenance but
+does not scan descriptions, infer sources, or retain correction state.
+
 ## Future evolution, not yet implemented
 
-- Later v1 work adds search and filtering, deterministic skill extraction and provenance,
-  and explainable analytics inside the FastAPI modular monolith.
+- Later v1 work adds search, filtering, notes, and explainable analytics inside the FastAPI
+  modular monolith.
 - Post-v1 releases may add a browser extension, resume intelligence, semantic retrieval, background
   processing, and applied AI only when their product requirements justify them.
 

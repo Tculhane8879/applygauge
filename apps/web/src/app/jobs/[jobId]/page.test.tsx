@@ -137,8 +137,18 @@ describe("JobDetailPage", () => {
     mocks.getJob.mockResolvedValue(job);
     mocks.getJobSkills.mockResolvedValue({
       items: [
-        { id: "cpp", name: "C++", category: "LANGUAGE" },
-        { id: "postgres", name: "PostgreSQL", category: "DATABASE" },
+        {
+          id: "cpp",
+          name: "C++",
+          category: "LANGUAGE",
+          sources: ["DETECTED"],
+        },
+        {
+          id: "postgres",
+          name: "PostgreSQL",
+          category: "DATABASE",
+          sources: ["MANUAL", "DETECTED"],
+        },
       ],
     });
 
@@ -146,6 +156,8 @@ describe("JobDetailPage", () => {
 
     expect(screen.getByText("C++")).toBeInTheDocument();
     expect(screen.getByText("PostgreSQL")).toBeInTheDocument();
+    expect(screen.getByText("Detected")).toBeInTheDocument();
+    expect(screen.getByText("Manual + detected")).toBeInTheDocument();
   });
 
   it("maps a skills 404 to the same privacy-preserving not-found path", async () => {
