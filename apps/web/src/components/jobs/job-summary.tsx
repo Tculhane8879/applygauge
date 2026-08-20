@@ -11,19 +11,29 @@ import {
 export function JobSummary({ job }: { job: JobRead }) {
   return (
     <Link
-      className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+      className="focus-ring grid gap-4 p-4 transition-colors hover:bg-surface-muted sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5"
       href={`/jobs/${job.id}`}
     >
-      <h3 className="text-xl font-semibold text-slate-950">{job.title}</h3>
-      <p className="mt-1 font-medium text-slate-700">{job.company.name}</p>
-      <div className="mt-3">
-        <JobStatusBadge status={job.current_status} />
+      <div className="min-w-0">
+        <h3 className="break-words text-lg font-semibold text-ink">
+          {job.title}
+        </h3>
+        <p className="mt-1 break-words font-medium text-ink/75">
+          {job.company.name}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
+          {job.location ? (
+            <span className="break-words">{job.location}</span>
+          ) : null}
+          <span>{workArrangementLabel(job.work_arrangement)}</span>
+          <span>{employmentTypeLabel(job.employment_type)}</span>
+        </div>
       </div>
-      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-600">
-        {job.location ? <span>{job.location}</span> : null}
-        <span>{workArrangementLabel(job.work_arrangement)}</span>
-        <span>{employmentTypeLabel(job.employment_type)}</span>
-        <span>Saved {formatJobDate(job.created_at)}</span>
+      <div className="flex items-end justify-between gap-4 sm:flex-col sm:items-end sm:justify-center">
+        <JobStatusBadge status={job.current_status} />
+        <span className="text-sm text-muted">
+          Tracked {formatJobDate(job.created_at)}
+        </span>
       </div>
     </Link>
   );

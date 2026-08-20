@@ -9,6 +9,7 @@ import {
 } from "@/app/jobs/actions";
 import { JobDetail } from "@/components/jobs/job-detail";
 import { JobsShell } from "@/components/jobs/jobs-shell";
+import { Alert } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api";
 import { getJob, getJobSkills, getStatusEvents } from "@/lib/api/jobs";
 import { requireAuthenticatedApiSession } from "@/lib/api/server";
@@ -28,16 +29,22 @@ export default async function JobDetailPage({
     if (result.status === 404) notFound();
     return (
       <JobsShell>
-        <p className="rounded-xl bg-red-50 p-4 text-red-800" role="alert">
+        <Alert title="Opportunity unavailable">
           This job could not be loaded right now. Please try again later.
-        </p>
+        </Alert>
       </JobsShell>
     );
   }
 
   return (
-    <JobsShell>
-      <Link className="font-medium text-blue-700 hover:underline" href="/jobs">
+    <JobsShell
+      description="Review the details, skills, and application progress for one opportunity."
+      title="Opportunity"
+    >
+      <Link
+        className="focus-ring inline-block rounded-sm text-sm font-semibold text-brand hover:text-brand-hover hover:underline"
+        href="/jobs"
+      >
         ← Back to saved jobs
       </Link>
       <div className="mt-6">

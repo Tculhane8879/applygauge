@@ -57,10 +57,10 @@ describe("InsightsPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/skills appear most often/)).toBeInTheDocument();
     const rows = screen.getAllByRole("listitem");
-    expect(rows[0]).toHaveTextContent("1.Python");
+    expect(rows[0]).toHaveTextContent("01Python");
     expect(rows[0]).toHaveTextContent("3 jobs");
     expect(rows[0]).toHaveTextContent("75.0%");
-    expect(rows[1]).toHaveTextContent("2.C++");
+    expect(rows[1]).toHaveTextContent("02C++");
     expect(rows[1]).toHaveTextContent("1 job");
     expect(rows[1]).toHaveTextContent("25.0%");
   });

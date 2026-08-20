@@ -42,7 +42,9 @@ describe("JobDetail", () => {
     expect(screen.getByText("On-site")).toBeInTheDocument();
     expect(screen.getByText("Contract")).toBeInTheDocument();
     expect(screen.getAllByText("Applied")).toHaveLength(2);
-    expect(screen.getByLabelText("Application status")).toHaveValue("APPLIED");
+    expect(
+      screen.getByRole("combobox", { name: "Application status" }),
+    ).toHaveValue("APPLIED");
     expect(screen.getByText(/First line/)).toHaveClass("whitespace-pre-wrap");
     const link = screen.getByRole("link", { name: /View job posting/ });
     expect(link).toHaveAttribute("href", job.job_url);
@@ -52,7 +54,17 @@ describe("JobDetail", () => {
       "href",
       "/jobs/job-id/edit",
     );
-    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    const deleteHeading = screen.getByRole("heading", {
+      name: "Delete this opportunity",
+    });
+    expect(
+      screen.getByRole("button", { name: "Delete job" }),
+    ).toBeInTheDocument();
+    expect(
+      deleteHeading.compareDocumentPosition(
+        screen.getByRole("heading", { name: "Status history" }),
+      ) & Node.DOCUMENT_POSITION_PRECEDING,
+    ).toBeTruthy();
   });
 
   it("handles all nullable display fields without broken output", () => {
@@ -75,5 +87,47 @@ describe("JobDetail", () => {
     expect(
       screen.getByText("No description was saved for this job."),
     ).toBeInTheDocument();
+  });
+
+  it("renders long content in full without adding truncation semantics", () => {
+    const longTitle =
+      "Senior Staff Distributed Systems and Developer Infrastructure Software Engineer";
+    const longCompany =
+      "International Consortium for Reliable Developer Infrastructure and Distributed Computing";
+    const longLocation =
+      "Remote across the continental United States with quarterly collaboration in San Francisco, California";
+    const longDescription =
+      "Build reliable systems across teams.\n\nOwn SuperLongUnbrokenTechnicalIdentifierWithManySegmentsAndNoSpaces end to end.";
+    const longUrl =
+      "https://example.test/opportunities/distributed-systems?department=developer-infrastructure&source=applygauge";
+
+    render(
+      <JobDetail
+        addSkillAction={vi.fn()}
+        deleteAction={async () => ({ success: false })}
+        history={[]}
+        job={{
+          ...job,
+          company: { ...job.company, name: longCompany },
+          description: longDescription,
+          job_url: longUrl,
+          location: longLocation,
+          title: longTitle,
+        }}
+        removeSkillAction={vi.fn()}
+        skills={[]}
+        statusAction={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: longTitle }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(longCompany)).toBeInTheDocument();
+    expect(screen.getByText(longLocation)).toBeInTheDocument();
+    expect(screen.getByText(/SuperLongUnbroken/)).toHaveClass("break-words");
+    expect(
+      screen.getByRole("link", { name: /View job posting/ }),
+    ).toHaveAttribute("href", longUrl);
   });
 });

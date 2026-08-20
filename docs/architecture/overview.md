@@ -2,23 +2,27 @@
 
 ## Status and scope
 
-This document describes the v1 direction and architecture implemented through Milestone 5.
+This document describes the architecture of the release-candidate v1 implementation.
 Authentication, user-owned job management, the application pipeline, canonical skills,
 deterministic extraction, manual correction, provenance display, and current-snapshot analytics are
-implemented. Milestone 5 is pending developer manual acceptance.
+implemented. The v1 product and visual system are complete; final release verification is pending.
 
 ## System boundary
 
 ```text
+Browser
+  |-- cookie-backed session <--> Supabase Auth
+  |
+  v
 Next.js / React / TypeScript
-             |
-             | HTTP/JSON
-             v
-       FastAPI / Python
-             |
-             | SQLAlchemy / SQL
-             v
-          PostgreSQL
+  |
+  | authenticated HTTP/JSON
+  v
+FastAPI / Python
+  |
+  | SQLAlchemy / SQL
+  v
+ApplyGauge PostgreSQL
 ```
 
 ### Next.js
@@ -27,7 +31,8 @@ The frontend owns presentation, accessible browser interaction, client-side UI s
 validation. It calls the versioned FastAPI surface for application operations. It does not directly
 read or write domain tables through Supabase-generated database APIs.
 
-Saved-job, status-transition, and job-skill writes use authenticated Next.js Server Actions. Each action re-establishes the server-side
+Saved-job, status-transition, and job-skill writes use authenticated Next.js Server Actions. Each
+action re-establishes the server-side
 Supabase session, obtains its access token through the shared token-provider boundary, and calls
 FastAPI through the centralized API transport. FastAPI remains authoritative for validation,
 ownership, company resolution, and persistence. Successful actions revalidate affected routes and
@@ -37,7 +42,7 @@ redirect to the persisted resource or list.
 
 FastAPI is the application boundary and owns authenticated identity validation, domain logic,
 authorization and ownership enforcement, input validation beyond UI concerns, status transitions,
-deterministic skill extraction, and read-only analytics. Notes remain for later milestones.
+deterministic skill extraction, and read-only analytics.
 
 The backend is a modular monolith: one deployable API organized into cohesive modules. ApplyGauge
 does not need microservices, a message broker, or a worker during v1.
@@ -45,16 +50,18 @@ does not need microservices, a message broker, or a worker during v1.
 ### PostgreSQL
 
 PostgreSQL owns persistent relational data. SQLAlchemy provides application database access and
-Alembic owns schema migrations. Milestone 2 introduced user-owned `companies` and `jobs` tables in
-the separate ApplyGauge application database. Milestone 3 adds a checked current-status snapshot
-and immutable same-owner transition events. FastAPI updates both atomically while holding an
-ownership-scoped PostgreSQL row lock. Milestone 4A adds a global curated `skills` vocabulary, a
-unified exact-lookup `skill_terms` namespace, and private same-owner `job_skills` associations.
-Milestone 4B adds explicit extraction eligibility, manual/detected association provenance, and
-private durable suppressions. Existing-job skill mutations serialize on the owned `jobs` row;
-new-job extraction remains inside the already-owned creation transaction.
+Alembic owns schema migrations. The separate ApplyGauge application database contains user-owned
+`companies` and `jobs`, a checked current-status snapshot, and immutable same-owner transition
+events. FastAPI updates status and history atomically while holding an ownership-scoped PostgreSQL
+row lock.
 
-Milestone 5 adds no persistence model. FastAPI aggregates current owned jobs and visible canonical
+The skill model separates a global curated `skills` vocabulary and exact-lookup `skill_terms`
+namespace from private same-owner `job_skills` associations and suppressions. Existing-job skill
+mutations serialize on the owned `jobs` row; new-job extraction remains inside the creation
+transaction. Global vocabulary does not imply global user activity: all associations, corrections,
+and analytics are reached through an authenticated user's jobs.
+
+Analytics add no persistence model. FastAPI aggregates current owned jobs and visible canonical
 job-skill associations directly in PostgreSQL. Summary, top-five skill demand, and recently created
 jobs serve the Dashboard; a separate endpoint serves the complete Insights ranking. Percentages
 use all owned jobs and are computed in the backend. No cache, materialized view, chart dependency,
@@ -71,7 +78,10 @@ browser, server, and Proxy clients. Proxy and protected Server Components use ve
 route decisions. FastAPI independently validates tokens through JWKS and derives a typed identity
 before protected operations. The browser is not trusted to supply resource ownership.
 
-Supabase infrastructure does not replace FastAPI as the business-logic boundary.
+Supabase infrastructure does not replace FastAPI as the business-logic boundary. Its local
+Auth-owned PostgreSQL database is operational identity infrastructure only. ApplyGauge does not use
+Supabase Data APIs for companies, jobs, status events, skill associations, corrections, or
+analytics.
 
 ## Local development architecture
 
@@ -137,9 +147,10 @@ does not scan descriptions, infer sources, or retain correction state.
 
 ## Future evolution, not yet implemented
 
-- Later v1 work may add search, filtering, and notes inside the FastAPI modular monolith.
-- Post-v1 releases may add a browser extension, resume intelligence, semantic retrieval, background
-  processing, and applied AI only when their product requirements justify them.
+- Post-v1 releases may add search/filtering, notes, salary/currency modeling, Applications or
+  Settings views, historical analytics, a browser extension, resume intelligence, semantic
+  retrieval, background processing, or applied AI only when their product requirements justify
+  them.
 
 Redis, workers, pgvector, AI services, Kubernetes, and billable cloud infrastructure are not part of
 the current architecture.

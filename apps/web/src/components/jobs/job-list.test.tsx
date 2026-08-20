@@ -56,4 +56,35 @@ describe("JobList", () => {
     expect(screen.queryByText("Seattle, WA")).not.toBeInTheDocument();
     expect(screen.getByText("Software Engineer")).toBeInTheDocument();
   });
+
+  it("preserves long job content and the full-row navigation target", () => {
+    const longTitle =
+      "Senior Staff Distributed Systems and Developer Infrastructure Software Engineer";
+    const longCompany =
+      "International Consortium for Reliable Developer Infrastructure and Distributed Computing";
+    const longLocation =
+      "Remote across the continental United States with quarterly collaboration in San Francisco, California";
+
+    render(
+      <JobList
+        jobs={[
+          {
+            ...job,
+            title: longTitle,
+            company: { ...job.company, name: longCompany },
+            location: longLocation,
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(longTitle)).toBeInTheDocument();
+    expect(screen.getByText(longCompany)).toBeInTheDocument();
+    expect(screen.getByText(longLocation)).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute(
+      "href",
+      "/jobs/11111111-1111-4111-8111-111111111111",
+    );
+    expect(screen.getByText("Screening")).toBeInTheDocument();
+  });
 });

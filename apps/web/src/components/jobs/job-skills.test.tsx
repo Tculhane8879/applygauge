@@ -106,11 +106,34 @@ describe("JobSkills", () => {
   it("renders a safe unavailable state", () => {
     render(<JobSkills {...actions} skills={null} />);
 
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Skills are unavailable right now.",
     );
     expect(screen.queryByLabelText("Skill name")).not.toBeInTheDocument();
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.queryByText(/suppression/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps a long canonical name and its contextual remove action", () => {
+    const skillName =
+      "Amazon Web Services Fault-Tolerant Distributed Infrastructure Engineering";
+    render(
+      <JobSkills
+        {...actions}
+        skills={[
+          {
+            id: "long-skill",
+            name: skillName,
+            category: "CLOUD",
+            sources: ["MANUAL"],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(skillName)).toHaveClass("break-words");
+    expect(
+      screen.getByRole("button", { name: `Remove ${skillName}` }),
+    ).toBeInTheDocument();
   });
 });

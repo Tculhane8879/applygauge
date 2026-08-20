@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
+import { Button } from "@/components/ui/button";
 import { type JobActionState } from "@/lib/jobs/form";
 
 export function DeleteJobButton({
@@ -12,31 +13,52 @@ export function DeleteJobButton({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string>();
   const [pending, startTransition] = useTransition();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+  const hasOpenedConfirmation = useRef(false);
+
+  useEffect(() => {
+    if (!hasOpenedConfirmation.current) return;
+
+    if (confirming) {
+      confirmRef.current?.focus();
+    } else {
+      triggerRef.current?.focus();
+    }
+  }, [confirming]);
 
   if (!confirming) {
     return (
-      <button
-        className="font-semibold text-red-700 hover:underline"
-        onClick={() => setConfirming(true)}
-        type="button"
+      <Button
+        aria-expanded="false"
+        onClick={() => {
+          hasOpenedConfirmation.current = true;
+          setConfirming(true);
+        }}
+        ref={triggerRef}
+        size="compact"
+        variant="destructive-subtle"
       >
-        Delete
-      </button>
+        Delete job
+      </Button>
     );
   }
 
   return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-      <p className="font-medium text-red-950">Delete this saved job?</p>
-      <p className="mt-1 text-sm text-red-800">This action cannot be undone.</p>
+    <div
+      aria-label="Delete job confirmation"
+      className="max-w-md rounded-lg border border-line bg-surface-muted p-3"
+      role="group"
+    >
+      <p className="font-semibold text-ink">Delete this job?</p>
+      <p className="mt-0.5 text-sm text-muted">This can&apos;t be undone.</p>
       {error ? (
-        <p className="mt-2 text-sm text-red-800" role="alert">
+        <p className="mt-2 break-words text-sm text-danger" role="alert">
           {error}
         </p>
       ) : null}
-      <div className="mt-3 flex gap-3">
-        <button
-          className="rounded-lg bg-red-700 px-4 py-2 font-semibold text-white disabled:cursor-wait disabled:opacity-60"
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
           disabled={pending}
           onClick={() =>
             startTransition(async () => {
@@ -45,18 +67,20 @@ export function DeleteJobButton({
               setError(result.formError);
             })
           }
-          type="button"
+          size="compact"
+          variant="destructive"
+          ref={confirmRef}
         >
-          {pending ? "Deleting…" : "Confirm delete"}
-        </button>
-        <button
-          className="rounded-lg px-4 py-2 font-semibold text-slate-700 hover:bg-white"
+          {pending ? "Deleting…" : "Delete job"}
+        </Button>
+        <Button
           disabled={pending}
           onClick={() => setConfirming(false)}
-          type="button"
+          size="compact"
+          variant="secondary"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </div>
   );

@@ -40,15 +40,22 @@ export function LoginForm() {
 
   return (
     <form className="space-y-4" noValidate onSubmit={submit}>
-      <Field label="Email" name="email" type="email" error={errors.email} />
+      <Field
+        autoComplete="email"
+        label="Email"
+        name="email"
+        type="email"
+        error={errors.email}
+      />
       <Field
         label="Password"
         name="password"
         type="password"
+        autoComplete="current-password"
         error={errors.password}
       />
       {formError && (
-        <p className="text-sm text-red-700" role="alert">
+        <p className="break-words text-sm text-red-700" role="alert">
           {formError}
         </p>
       )}
@@ -62,24 +69,30 @@ export function Field({
   name,
   type,
   error,
+  autoComplete,
 }: {
   label: string;
   name: string;
   type: string;
   error?: string;
+  autoComplete?: string;
 }) {
   return (
-    <label className="block text-sm font-medium text-slate-700">
+    <label className="block text-sm font-medium text-ink">
       {label}
       <input
         aria-describedby={error ? `${name}-error` : undefined}
         aria-invalid={Boolean(error)}
-        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+        autoComplete={autoComplete}
+        className="form-control mt-1"
         name={name}
         type={type}
       />
       {error && (
-        <span className="mt-1 block text-red-700" id={`${name}-error`}>
+        <span
+          className="mt-1 block break-words text-red-700"
+          id={`${name}-error`}
+        >
           {error}
         </span>
       )}

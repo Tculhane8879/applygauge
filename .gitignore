@@ -9,6 +9,7 @@ node_modules/
 .next/
 out/
 coverage/
+*.log
 *.tsbuildinfo
 
 # Python

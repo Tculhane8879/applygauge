@@ -10,15 +10,17 @@ export const dynamic = "force-dynamic";
 export default async function NewJobPage() {
   await requireAuthenticatedApiSession();
   return (
-    <JobsShell>
-      <Link className="font-medium text-blue-700 hover:underline" href="/jobs">
+    <JobsShell
+      description="Save an opportunity and keep its details in one focused workspace."
+      title="Add opportunity"
+    >
+      <Link
+        className="focus-ring inline-block rounded-sm text-sm font-semibold text-brand hover:text-brand-hover hover:underline"
+        href="/jobs"
+      >
         ← Back to saved jobs
       </Link>
-      <h2 className="mt-6 text-3xl font-bold text-slate-950">Add a job</h2>
-      <p className="mt-2 text-slate-600">
-        Save an opportunity for later review.
-      </p>
-      <div className="mt-8">
+      <div className="mt-6">
         <JobForm action={createJobAction} cancelHref="/jobs" />
       </div>
     </JobsShell>

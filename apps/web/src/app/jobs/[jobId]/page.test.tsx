@@ -179,7 +179,7 @@ describe("JobDetailPage", () => {
     expect(
       screen.getByRole("heading", { name: job.title }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
+    expect(screen.getByRole("alert")).toHaveTextContent(
       "Skills are unavailable right now.",
     );
     expect(screen.getAllByText("Saved").length).toBeGreaterThan(0);

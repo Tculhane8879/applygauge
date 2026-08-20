@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { updateJobAction } from "@/app/jobs/actions";
 import { JobForm } from "@/components/jobs/job-form";
 import { JobsShell } from "@/components/jobs/jobs-shell";
+import { Alert } from "@/components/ui/alert";
 import { ApiError } from "@/lib/api";
 import { getJob } from "@/lib/api/jobs";
 import { requireAuthenticatedApiSession } from "@/lib/api/server";
@@ -24,23 +25,25 @@ export default async function EditJobPage({
     if (error instanceof ApiError && error.status === 404) notFound();
     return (
       <JobsShell>
-        <p className="rounded-xl bg-red-50 p-4 text-red-800" role="alert">
+        <Alert title="Opportunity unavailable">
           This job could not be loaded right now. Please try again later.
-        </p>
+        </Alert>
       </JobsShell>
     );
   }
   const action = updateJobAction.bind(null, jobId);
   return (
-    <JobsShell>
+    <JobsShell
+      description="Update the saved details for this opportunity."
+      title="Edit opportunity"
+    >
       <Link
-        className="font-medium text-blue-700 hover:underline"
+        className="focus-ring inline-block rounded-sm text-sm font-semibold text-brand hover:text-brand-hover hover:underline"
         href={`/jobs/${jobId}`}
       >
         ← Back to job details
       </Link>
-      <h2 className="mt-6 text-3xl font-bold text-slate-950">Edit job</h2>
-      <div className="mt-8">
+      <div className="mt-6">
         <JobForm action={action} cancelHref={`/jobs/${jobId}`} job={job} />
       </div>
     </JobsShell>

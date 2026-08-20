@@ -1,16 +1,15 @@
 import { type JobRead } from "@/lib/api/jobs";
+import { EmptyState } from "@/components/ui/empty-state";
 
 import { JobSummary } from "./job-summary";
 
 export function JobList({ jobs }: { jobs: JobRead[] }) {
   if (jobs.length === 0) {
     return (
-      <section className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center">
-        <h2 className="text-xl font-semibold">No saved jobs yet</h2>
-        <p className="mt-2 text-slate-600">
-          Add your first opportunity to begin building your saved-job list.
-        </p>
-      </section>
+      <EmptyState
+        description="Add your first opportunity to begin building your saved-job list."
+        title="No saved jobs yet"
+      />
     );
   }
 
@@ -19,7 +18,7 @@ export function JobList({ jobs }: { jobs: JobRead[] }) {
       <h2 className="sr-only" id="job-list-heading">
         Saved job opportunities
       </h2>
-      <ul className="space-y-4">
+      <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
         {jobs.map((job) => (
           <li key={job.id}>
             <JobSummary job={job} />

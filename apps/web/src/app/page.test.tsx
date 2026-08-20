@@ -1,28 +1,25 @@
-import "@testing-library/jest-dom/vitest";
 import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import Home from "./page";
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
-
 describe("Home", () => {
-  it("identifies the application", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ status: "ok" }),
-      }),
-    );
-
+  it("presents the v1 product and authentication actions", () => {
     render(<Home />);
 
     expect(
       screen.getByRole("heading", { name: "ApplyGauge" }),
     ).toBeInTheDocument();
-    expect(await screen.findByText("API: connected")).toBeInTheDocument();
+    expect(screen.getByText(/Track opportunities/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+      "href",
+      "/login",
+    );
+    expect(
+      screen.getByRole("link", { name: "Create account" }),
+    ).toHaveAttribute("href", "/signup");
+    expect(
+      screen.queryByText(/Engineering foundation/),
+    ).not.toBeInTheDocument();
   });
 });

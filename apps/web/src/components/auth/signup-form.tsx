@@ -45,7 +45,7 @@ export function SignupForm() {
   if (confirmationRequired) {
     return (
       <div
-        className="rounded-lg bg-blue-50 p-4 text-sm text-blue-900"
+        className="rounded-lg border border-indigo-200 bg-analytics-tint p-4 text-sm text-frame"
         role="status"
       >
         Check your email to confirm your account, then continue to ApplyGauge.
@@ -55,21 +55,29 @@ export function SignupForm() {
 
   return (
     <form className="space-y-4" noValidate onSubmit={submit}>
-      <Field label="Email" name="email" type="email" error={errors.email} />
+      <Field
+        autoComplete="email"
+        label="Email"
+        name="email"
+        type="email"
+        error={errors.email}
+      />
       <Field
         label="Password"
         name="password"
         type="password"
+        autoComplete="new-password"
         error={errors.password}
       />
       <Field
         label="Confirm password"
         name="confirmPassword"
         type="password"
+        autoComplete="new-password"
         error={errors.confirmPassword}
       />
       {formError && (
-        <p className="text-sm text-red-700" role="alert">
+        <p className="break-words text-sm text-red-700" role="alert">
           {formError}
         </p>
       )}

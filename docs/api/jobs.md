@@ -132,8 +132,8 @@ immutable history, and changes status through an authenticated Server Action tha
 dedicated transition endpoint. History remains server-authoritative and refreshes from FastAPI
 after a successful transition. Job detail also lists canonical skills, shows manual/detected
 provenance, and supports correction through the separate API below. Current-snapshot aggregates
-are available through the separate [Analytics API](analytics.md). Notes, search, and filtering
-belong to later milestones.
+are available through the separate [Analytics API](analytics.md). Notes, search, and filtering are
+explicitly deferred until post-v1.
 
 Authenticated manual job-skill endpoints are documented separately in the
 [Job Skills API](skills.md). The job list and create/edit metadata forms intentionally remain

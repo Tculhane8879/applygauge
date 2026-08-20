@@ -3,6 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { APPLICATION_STATUSES, type ApplicationStatus } from "@/lib/api/jobs";
 import { applicationStatusLabel } from "@/lib/jobs/presentation";
 
@@ -26,7 +27,6 @@ export function JobStatusControl({
 
   return (
     <form
-      className="rounded-xl border border-slate-200 bg-white p-4"
       onSubmit={(event) => {
         event.preventDefault();
         if (isNoOp || pending) return;
@@ -41,42 +41,37 @@ export function JobStatusControl({
         });
       }}
     >
-      <label
-        className="block text-sm font-semibold text-slate-800"
-        htmlFor={selectId}
-      >
+      <label className="sr-only" htmlFor={selectId}>
         Application status
       </label>
-      <select
-        aria-describedby={error ? errorId : undefined}
-        aria-invalid={error ? true : undefined}
-        className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 disabled:cursor-wait disabled:bg-slate-100"
-        disabled={pending}
-        id={selectId}
-        onChange={(event) => {
-          setSelectedStatus(event.target.value as ApplicationStatus);
-          setError(undefined);
-        }}
-        value={selectedStatus}
-      >
-        {APPLICATION_STATUSES.map((status) => (
-          <option key={status} value={status}>
-            {applicationStatusLabel(status)}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <select
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? true : undefined}
+          className="form-control sm:max-w-xs"
+          disabled={pending}
+          id={selectId}
+          onChange={(event) => {
+            setSelectedStatus(event.target.value as ApplicationStatus);
+            setError(undefined);
+          }}
+          value={selectedStatus}
+        >
+          {APPLICATION_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {applicationStatusLabel(status)}
+            </option>
+          ))}
+        </select>
+        <Button disabled={pending || isNoOp} type="submit">
+          {pending ? "Updating…" : "Update status"}
+        </Button>
+      </div>
       {error ? (
-        <p className="mt-2 text-sm text-red-700" id={errorId} role="alert">
+        <p className="mt-2 text-sm text-danger" id={errorId} role="alert">
           {error}
         </p>
       ) : null}
-      <button
-        className="mt-3 rounded-lg bg-blue-700 px-4 py-2 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-        disabled={pending || isNoOp}
-        type="submit"
-      >
-        {pending ? "Updating…" : "Update status"}
-      </button>
     </form>
   );
 }

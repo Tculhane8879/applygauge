@@ -220,6 +220,12 @@ This sentence defines v1.
 
 If a proposed feature does not contribute directly to this product definition, it should normally be deferred.
 
+The released v1 scope intentionally excludes notes, salary/currency fields, job search and
+filtering, separate Applications and Settings pages, historical funnel/trend analytics,
+recommendations, resume comparison, AI/semantic extraction, scraping, browser capture, exports,
+notifications, and public deployment infrastructure. These are post-v1 possibilities, not missing
+v1 acceptance criteria.
+
 ---
 
 # 8. V1 SUCCESS CRITERIA
@@ -237,24 +243,20 @@ ApplyGauge v1 is successful when a user can reliably:
    - URL;
    - location;
    - work arrangement;
-   - employment type;
-   - optional salary information.
+   - employment type.
 
 6. Automatically detect known technical skills mentioned in the job description.
 7. Manually add a missing skill.
 8. Remove an incorrectly detected skill.
 9. Track the job through an application pipeline.
 10. Preserve application-status history.
-11. Search saved jobs.
-12. Filter saved jobs.
-13. Edit a job.
-14. Delete a job.
-15. Add personal notes to a job.
-16. View aggregate technology-demand statistics.
-17. See which skills occur most frequently across saved jobs.
-18. View basic job-search dashboard metrics.
-19. Maintain strict data isolation between different user accounts.
-20. Run the entire project locally through documented setup instructions.
+11. Edit a job.
+12. Delete a job.
+13. View aggregate technology-demand statistics.
+14. See which skills occur most frequently across saved jobs.
+15. View basic job-search dashboard metrics.
+16. Maintain strict data isolation between different user accounts.
+17. Run the entire project locally through documented setup instructions.
 
 If these capabilities are complete, tested, documented, and polished, v1 is finished.
 
@@ -333,9 +335,8 @@ Frontend:
 - Vitest
 - React Testing Library
 
-End-to-end:
-
-- Playwright
+Browser acceptance is performed through documented deterministic manual release checklists.
+Playwright may be introduced post-v1 when stable product flows justify its maintenance cost.
 
 ## Tooling
 
@@ -439,11 +440,10 @@ The primary authenticated application contains these views:
 
 - Dashboard
 - Jobs
-- Applications
 - Insights
-- Settings
 
-Jobs and Applications may present different views of the same underlying job/application domain data.
+Applications and Settings views are post-v1. Job application progress is represented directly by
+each saved job's current status and immutable history rather than a separate v1 navigation concept.
 
 Avoid duplicating database models merely because the UI presents two navigation concepts.
 
@@ -516,16 +516,11 @@ View all saved jobs.
 
 ## JOB-002
 
-Search by:
-
-- company name;
-- job title.
-
-Search should be case-insensitive.
+Search by company name or job title is deferred until post-v1.
 
 ## JOB-003
 
-Filter by application status.
+Filtering by application status is deferred until post-v1.
 
 ## JOB-004
 
@@ -563,8 +558,6 @@ Form fields:
 - location
 - work arrangement
 - employment type
-- salary minimum
-- salary maximum
 
 Do not make optional metadata mandatory simply because it is useful.
 
@@ -585,12 +578,10 @@ It must display:
 - work arrangement;
 - employment type;
 - URL;
-- salary data if available;
 - original job description;
 - detected skills;
 - manually added skills;
 - status history;
-- notes;
 - created/updated metadata as appropriate.
 
 Requirements:
@@ -623,7 +614,7 @@ Allow valid application-status changes.
 
 ## DETAIL-007
 
-Allow creation and management of notes.
+Personal notes are deferred until post-v1.
 
 ## DETAIL-008
 
@@ -977,18 +968,10 @@ Milestone 5 index/migration. Exact rationale is recorded in ADR 011.
 
 ---
 
-# 23. SETTINGS VIEW
+# 23. SETTINGS VIEW — POST-V1
 
-Keep Settings intentionally minimal.
-
-Include:
-
-- basic profile information;
-- email display;
-- sign out;
-- delete account.
-
-Avoid building a complex preferences system.
+A dedicated Settings view, profile management, and account deletion are deferred until post-v1.
+V1 provides authenticated session handling and Sign out in the shared application shell.
 
 ---
 
@@ -1021,8 +1004,6 @@ User A must never be able to:
 
 - retrieve User B's jobs;
 - modify User B's jobs;
-- retrieve User B's notes;
-- modify User B's notes;
 - access User B's analytics;
 - manipulate IDs to expose User B's data.
 
@@ -1047,7 +1028,6 @@ The initial conceptual model includes:
 - skill_aliases;
 - job_skills;
 - status_events;
-- notes.
 
 Supabase manages authentication identity separately.
 
@@ -1102,9 +1082,6 @@ location            VARCHAR NULL
 work_arrangement    ENUM / constrained value
 employment_type     ENUM / constrained value
 
-salary_min          INTEGER NULL
-salary_max          INTEGER NULL
-
 status              application status NOT NULL
 
 created_at          TIMESTAMP NOT NULL
@@ -1112,11 +1089,8 @@ updated_at          TIMESTAMP NOT NULL
 applied_at          TIMESTAMP NULL
 ```
 
-Consider whether salary requires currency metadata before implementation.
-
-Do not assume every future job is denominated in USD simply because the initial user is in the United States.
-
-If supporting currency in v1 would complicate scope, document a clear assumption rather than creating a half-designed salary model.
+Salary and currency modeling are deferred until post-v1 rather than introducing incomplete
+currency semantics.
 
 ---
 
@@ -1259,7 +1233,7 @@ Choose one consistent rule and document it.
 
 ---
 
-# 35. NOTES TABLE
+# 35. NOTES TABLE — POST-V1
 
 Conceptual schema:
 
@@ -1275,7 +1249,7 @@ created_at
 updated_at
 ```
 
-Use plain text for v1.
+This is a post-v1 conceptual model. Notes are not part of the released v1 schema or API.
 
 Do not introduce rich-text editors.
 
@@ -1287,7 +1261,6 @@ Deleting a job should permanently delete dependent data such as:
 
 - job_skills;
 - status_events;
-- notes.
 
 Use appropriate foreign-key cascading behavior where sensible.
 
@@ -1333,7 +1306,7 @@ PATCH  /api/v1/jobs/{job_id}
 DELETE /api/v1/jobs/{job_id}
 ```
 
-The list endpoint should eventually support query parameters for:
+The list endpoint may support these post-v1 query parameters:
 
 - search;
 - status;
@@ -1361,7 +1334,7 @@ DELETE /api/v1/jobs/{job_id}/skills/{skill_id}
 
 Alternative REST shapes may be considered if they are meaningfully cleaner, but remain consistent.
 
-## Notes
+## Notes — post-v1
 
 ```http
 GET    /api/v1/jobs/{job_id}/notes
@@ -1371,11 +1344,11 @@ PATCH  /api/v1/notes/{note_id}
 DELETE /api/v1/notes/{note_id}
 ```
 
-## Insights
+## Analytics
 
 ```http
-GET /api/v1/insights/skills
-GET /api/v1/insights/summary
+GET /api/v1/analytics/overview
+GET /api/v1/analytics/skills
 ```
 
 ---
@@ -1485,19 +1458,7 @@ If supplied:
 
 - valid HTTP or HTTPS URL.
 
-## Salary
-
-If minimum and maximum both exist:
-
-```text
-salary_min <= salary_max
-```
-
-Reject negative values.
-
-## Notes
-
-Set a reasonable maximum length to avoid unbounded payloads.
+Salary and note validation belong to their post-v1 feature designs.
 
 ---
 
@@ -1563,7 +1524,6 @@ Must cover important logic including:
 - User A cannot retrieve User B's job;
 - User A cannot modify User B's job;
 - User A cannot delete User B's job;
-- notes respect ownership.
 
 ### Job CRUD
 
@@ -1571,9 +1531,7 @@ Must cover important logic including:
 - invalid creation;
 - retrieval;
 - update;
-- delete;
-- search;
-- filter.
+- delete.
 
 ### Status
 
@@ -1615,16 +1573,13 @@ Cover meaningful behavior rather than testing trivial markup.
 Examples:
 
 - form validation;
-- filtering;
 - relevant interactive components;
 - empty states;
 - error states.
 
 ## End-to-End
 
-Use Playwright.
-
-At minimum create a happy-path flow covering:
+The v1 release uses deterministic manual browser acceptance covering:
 
 ```text
 sign up / log in
@@ -1836,7 +1791,6 @@ Build:
 - status history;
 - deterministic skill extraction;
 - skill corrections;
-- job notes;
 - basic dashboard;
 - skill-demand analytics;
 - testing;
@@ -2182,9 +2136,7 @@ Deliver:
 - job detail;
 - job editing;
 - job deletion;
-- search;
-- filtering;
-- sorting;
+- deterministic list ordering;
 - validation;
 - UI states.
 
@@ -2304,7 +2256,7 @@ Deliver:
 - response-rate definition and calculation;
 - deterministic analytics tests.
 
-Implementation status: complete pending developer manual browser acceptance. The implemented
+Implementation status: complete and manually accepted. The implemented
 scope is current-snapshot summary metrics, backend-computed canonical skill demand, Dashboard
 top-five/recent views, and the complete `/insights` ranking. Analytics filters and historical
 funnel/conversion analysis are not part of Milestone 5.
@@ -2326,7 +2278,6 @@ Deliver:
 - empty states;
 - destructive-action confirmations;
 - complete tests;
-- Playwright happy path;
 - CI hardening;
 - README;
 - architecture diagram;
@@ -2366,8 +2317,6 @@ Do not declare v1 complete until:
 - jobs can be viewed;
 - jobs can be edited;
 - jobs can be deleted;
-- jobs can be searched;
-- jobs can be filtered;
 - application status can change;
 - status history is persisted;
 - job descriptions remain intact;
@@ -2377,10 +2326,8 @@ Do not declare v1 complete until:
 - skill percentages are accurate;
 - Insights works;
 - dashboard works;
-- notes work;
 - backend critical logic has automated tests;
 - important frontend behavior has tests;
-- E2E happy path passes;
 - CI passes;
 - local environment is documented;
 - project remains $0 to develop;
